@@ -1,3 +1,85 @@
 {
-  "_comment": "Placeholder — replaced with real Resend entry in Phase 3"
+  "name": "Resend",
+  "slug": "resend",
+  "category": "email",
+  "subcategory": "transactional-email",
+  "website": "https://resend.com",
+  "description": "Resend is a developer-first email API designed for modern applications. It provides a clean REST API and React Email integration, making it exceptionally easy to send beautiful transactional emails with minimal setup.",
+  "useCases": [
+    {
+      "task": "Send transactional emails with dynamic templates",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send password reset and verification emails",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send bulk marketing campaigns",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at resend.com",
+      "Navigate to API Keys in the dashboard",
+      "Create a new API key",
+      "Add your sending domain under Domains",
+      "Set RESEND_API_KEY environment variable"
+    ],
+    "envVarName": "RESEND_API_KEY",
+    "codeSnippet": "const resend = new Resend(process.env.RESEND_API_KEY);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "3,000 emails/month, 1 domain",
+    "startingPrice": "$20/month for 50,000 emails",
+    "costPer": "$0.0004 per email after plan limit",
+    "pricingUrl": "https://resend.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "10 requests/second, 3,000 emails/month",
+    "notes": "Rate limits apply per API key. Free tier limited to 1 custom domain.",
+    "retryStrategy": "Exponential backoff starting at 1s, max 3 retries for 429 responses"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact resend",
+    "importStatement": "import { Resend } from 'resend';",
+    "otherLanguages": ["python", "ruby", "go", "php"]
+  },
+  "codeExamples": [
+    {
+      "title": "Send a basic email",
+      "language": "typescript",
+      "code": "import { Resend } from 'resend';\n\nconst resend = new Resend(process.env.RESEND_API_KEY);\n\nconst { data, error } = await resend.emails.send({\n  from: 'Acme <onboarding@acme.com>',\n  to: ['user@example.com'],\n  subject: 'Welcome to Acme!',\n  html: '<p>Thanks for signing up.</p>',\n});\n\nif (error) {\n  console.error('Email failed:', error);\n  return;\n}\n\nconsole.log('Email sent:', data?.id);",
+      "notes": "The 'from' address must use a verified domain. Use onboarding@resend.dev for testing."
+    },
+    {
+      "title": "Send with React Email template",
+      "language": "typescript",
+      "code": "import { Resend } from 'resend';\nimport { WelcomeEmail } from './emails/welcome';\n\nconst resend = new Resend(process.env.RESEND_API_KEY);\n\nconst { data, error } = await resend.emails.send({\n  from: 'Acme <onboarding@acme.com>',\n  to: ['user@example.com'],\n  subject: 'Welcome!',\n  react: <WelcomeEmail username=\"Jane\" />,\n});\n",
+      "notes": "Requires @react-email/components and react as peer dependencies."
+    }
+  ],
+  "gotchas": [
+    "The 'from' address must use a verified domain — you cannot send from gmail.com or other public domains. Use 'onboarding@resend.dev' only for initial testing.",
+    "Free tier limits you to a single domain. If you need multiple domains (e.g., staging + production), upgrade to a paid plan.",
+    "Resend does not support bulk/marketing email on the free tier — it is optimized for transactional email. For newsletters, look at Loops or Buttondown instead."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% SLA on paid plans",
+    "statusPageUrl": "https://status.resend.com",
+    "notes": "Resend uses multiple delivery providers as fallback. Delivery typically happens within seconds."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Resend has the cleanest API of any email provider, with first-class TypeScript support, excellent React Email integration, and a developer experience that's hard to beat. Excellent documentation and fast onboarding. Minor deduction for limited free tier domain count.",
+  "alternatives": ["sendgrid", "postmark"],
+  "complementary": ["clerk", "stripe"],
+  "bestFor": "Developer-first transactional email with the simplest possible API and React Email support",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
 }

@@ -1,0 +1,90 @@
+{
+  "name": "SendGrid",
+  "slug": "sendgrid",
+  "category": "email",
+  "subcategory": "transactional-email",
+  "website": "https://sendgrid.com",
+  "description": "SendGrid (by Twilio) is an enterprise-grade cloud email platform supporting both transactional and marketing email at massive scale. It is the industry standard for high-volume senders, with deep analytics, deliverability tools, and a comprehensive REST API.",
+  "useCases": [
+    {
+      "task": "Send high-volume transactional emails at enterprise scale",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send marketing campaigns to large email lists",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send password reset and verification emails",
+      "fit": "good"
+    },
+    {
+      "task": "Manage email templates with dynamic content",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at sendgrid.com (or use your Twilio account)",
+      "Go to Settings > API Keys",
+      "Create a new API key with 'Full Access' or scoped permissions",
+      "Verify your sender identity under Settings > Sender Authentication",
+      "Set SENDGRID_API_KEY environment variable"
+    ],
+    "envVarName": "SENDGRID_API_KEY",
+    "codeSnippet": "const sgMail = require('@sendgrid/mail');\nsgMail.setApiKey(process.env.SENDGRID_API_KEY);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "100 emails/day forever (shared IP)",
+    "startingPrice": "$19.95/month for 50,000 emails",
+    "costPer": "Varies by plan; Essentials plan ~$0.0004/email",
+    "pricingUrl": "https://sendgrid.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "100 emails/day, 600 requests/minute on API",
+    "notes": "Free tier uses shared IP pool which can affect deliverability. Dedicated IPs available on Pro plans at extra cost.",
+    "retryStrategy": "Implement exponential backoff for 429 and 503 responses; SendGrid recommends retry with jitter"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @sendgrid/mail",
+    "importStatement": "import sgMail from '@sendgrid/mail';",
+    "otherLanguages": ["python", "ruby", "java", "go", "php", "csharp"]
+  },
+  "codeExamples": [
+    {
+      "title": "Send a basic email",
+      "language": "typescript",
+      "code": "import sgMail from '@sendgrid/mail';\n\nsgMail.setApiKey(process.env.SENDGRID_API_KEY!);\n\ntry {\n  await sgMail.send({\n    to: 'user@example.com',\n    from: 'noreply@yourdomain.com', // Must be verified\n    subject: 'Your order confirmation',\n    text: 'Thank you for your order!',\n    html: '<p>Thank you for your order!</p>',\n  });\n  console.log('Email sent successfully');\n} catch (error) {\n  console.error('SendGrid error:', error);\n  throw error;\n}",
+      "notes": "The 'from' address must be a verified sender. Set up Sender Authentication in the dashboard before sending."
+    },
+    {
+      "title": "Send with a dynamic template",
+      "language": "typescript",
+      "code": "import sgMail from '@sendgrid/mail';\n\nsgMail.setApiKey(process.env.SENDGRID_API_KEY!);\n\nawait sgMail.send({\n  to: 'user@example.com',\n  from: 'noreply@yourdomain.com',\n  templateId: 'd-your-template-id-here',\n  dynamicTemplateData: {\n    username: 'Jane',\n    resetUrl: 'https://app.com/reset/abc123',\n    expiresIn: '1 hour',\n  },\n});",
+      "notes": "Create templates in the SendGrid dashboard under Email API > Dynamic Templates. Template IDs start with 'd-'."
+    }
+  ],
+  "gotchas": [
+    "Free tier (100 emails/day) uses a shared IP pool — deliverability is lower than paid tiers with dedicated IPs. Expect higher spam rates on shared IPs.",
+    "Sender authentication (domain authentication via DNS records) is required for good deliverability. Setting up SPF, DKIM, and DMARC records is mandatory for production.",
+    "The @sendgrid/mail SDK uses CommonJS require() internally, which can cause issues in pure ESM projects. Use dynamic import or configure your bundler accordingly.",
+    "SendGrid's free tier is being deprecated and replaced by Twilio's free trial — check current free tier limits as they may have changed."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.95% SLA on Pro and Premier plans",
+    "statusPageUrl": "https://status.sendgrid.com",
+    "notes": "SendGrid is battle-tested at multi-billion email/month scale. Global infrastructure with multiple data centers."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Industry standard with unmatched scale and ecosystem, but the API and SDK feel dated compared to newer alternatives. The free tier limit (100/day) is very low, setup complexity is higher, and the Twilio acquisition has introduced some organizational complexity. Still the best choice for enterprise scale.",
+  "alternatives": ["resend", "postmark"],
+  "complementary": ["stripe", "twilio"],
+  "bestFor": "High-volume transactional and marketing email at enterprise scale with deep analytics",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

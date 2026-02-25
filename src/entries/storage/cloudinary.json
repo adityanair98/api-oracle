@@ -1,0 +1,93 @@
+{
+  "name": "Cloudinary",
+  "slug": "cloudinary",
+  "category": "storage",
+  "subcategory": "media-management",
+  "website": "https://cloudinary.com",
+  "description": "Cloudinary is a cloud-based media management platform that handles image and video upload, storage, transformation, optimization, and delivery via CDN. It provides powerful on-the-fly image transformations through URL parameters, making it the standard choice for apps that need dynamic image processing.",
+  "useCases": [
+    {
+      "task": "Upload, store, and serve images and videos via CDN",
+      "fit": "perfect"
+    },
+    {
+      "task": "Resize, crop, and transform images on-the-fly via URL parameters",
+      "fit": "perfect"
+    },
+    {
+      "task": "Optimize images automatically for web performance",
+      "fit": "perfect"
+    },
+    {
+      "task": "Store and process user-uploaded files",
+      "fit": "good"
+    },
+    {
+      "task": "Store arbitrary files like PDFs or binaries",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at cloudinary.com",
+      "Go to Dashboard and find your Cloud Name, API Key, and API Secret",
+      "Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET environment variables",
+      "Alternatively, use the CLOUDINARY_URL env var: cloudinary://API_KEY:API_SECRET@CLOUD_NAME"
+    ],
+    "envVarName": "CLOUDINARY_API_SECRET",
+    "codeSnippet": "import { v2 as cloudinary } from 'cloudinary';\ncloudinary.config({\n  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,\n  api_key: process.env.CLOUDINARY_API_KEY,\n  api_secret: process.env.CLOUDINARY_API_SECRET,\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "25 credits/month (1 credit = 1000 transformations or 1GB storage or 1GB bandwidth)",
+    "startingPrice": "$89/month for 225 credits",
+    "costPer": "Varies by credits consumed; $0.05 per additional credit overage",
+    "pricingUrl": "https://cloudinary.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "500 requests/hour for API operations",
+    "notes": "Delivery (CDN) has no rate limit — only management API operations are rate-limited. Transformations count against your credit quota.",
+    "retryStrategy": "Implement exponential backoff for 429 responses; CDN delivery is separate from management API and has no limits"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact cloudinary",
+    "importStatement": "import { v2 as cloudinary } from 'cloudinary';",
+    "otherLanguages": ["python", "java", "ruby", "php", "go", "android", "ios"]
+  },
+  "codeExamples": [
+    {
+      "title": "Upload an image",
+      "language": "typescript",
+      "code": "import { v2 as cloudinary } from 'cloudinary';\n\ncloudinary.config({\n  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,\n  api_key: process.env.CLOUDINARY_API_KEY,\n  api_secret: process.env.CLOUDINARY_API_SECRET,\n});\n\n// Upload from file path\nconst result = await cloudinary.uploader.upload('./profile.jpg', {\n  public_id: 'users/user_123/profile',\n  folder: 'users',\n  overwrite: true,\n  resource_type: 'image',\n});\n\nconsole.log('Uploaded URL:', result.secure_url);\nconsole.log('Public ID:', result.public_id);",
+      "notes": "Use public_id to control the URL path. Set overwrite: true to replace existing images. The returned secure_url is the CDN URL for direct use in <img> tags."
+    },
+    {
+      "title": "Transform image via URL",
+      "language": "typescript",
+      "code": "import { v2 as cloudinary } from 'cloudinary';\n\ncloudinary.config({ /* ... */ });\n\n// Generate a URL with transformations — no API call needed!\nconst url = cloudinary.url('users/user_123/profile', {\n  width: 200,\n  height: 200,\n  crop: 'fill',\n  gravity: 'face', // Auto-detect and center on face\n  quality: 'auto',\n  fetch_format: 'auto', // Serve WebP to browsers that support it\n});\n\nconsole.log('Transformed URL:', url);\n// Outputs: https://res.cloudinary.com/your-cloud/image/upload/w_200,h_200,c_fill,g_face,q_auto,f_auto/users/user_123/profile",
+      "notes": "Transformations are applied on-the-fly and cached at the CDN edge. No server-side processing required — just build the URL."
+    }
+  ],
+  "gotchas": [
+    "Cloudinary's credit system is confusing — storage, bandwidth, AND transformations all consume credits at different rates. Monitor your dashboard carefully to avoid unexpected charges, especially if you have many unique transformations.",
+    "Upload signatures are required for secure client-side uploads. Never expose your API Secret in frontend code. Use cloudinary.utils.api_sign_request() server-side to generate upload signatures.",
+    "Every unique transformation URL is a separate cached variant. If you programmatically generate many transformation combinations, you can quickly exhaust your transformation quota. Stick to a fixed set of transformation presets.",
+    "The free tier's 25 credits/month sounds generous but goes quickly. 1GB of images stored + delivered = 2 credits. Plan your usage carefully."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% uptime SLA on paid plans",
+    "statusPageUrl": "https://status.cloudinary.com",
+    "notes": "Global CDN with 180+ PoPs. Images are replicated across multiple regions automatically. Management API has occasional latency spikes."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best media management platform with unmatched transformation capabilities. URL-based transformations are genuinely magical. TypeScript SDK has some rough edges. Pricing model is complex and can surprise developers. Still the default choice for any app with significant media needs.",
+  "alternatives": ["uploadthing"],
+  "complementary": ["openai", "anthropic"],
+  "bestFor": "Image and video management with on-the-fly transformations, auto-optimization, and global CDN delivery",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

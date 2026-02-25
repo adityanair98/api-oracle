@@ -1,0 +1,89 @@
+{
+  "name": "Resend",
+  "slug": "resend",
+  "category": "email",
+  "subcategory": "transactional-email",
+  "website": "https://resend.com",
+  "description": "Resend is a developer-first email API built for modern applications. It offers a clean REST API, first-class TypeScript SDK, and native React Email integration — making it the fastest way to ship beautiful transactional emails.",
+  "useCases": [
+    {
+      "task": "Send transactional emails with dynamic templates",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send password reset and account verification emails",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send welcome and onboarding emails",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send bulk marketing email campaigns",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at resend.com",
+      "Navigate to API Keys in the dashboard",
+      "Click 'Create API Key' and give it a name",
+      "Add and verify your sending domain under Domains (or use onboarding@resend.dev for testing)",
+      "Copy the API key and set it as the RESEND_API_KEY environment variable"
+    ],
+    "envVarName": "RESEND_API_KEY",
+    "codeSnippet": "const resend = new Resend(process.env.RESEND_API_KEY);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "3,000 emails/month, 1 custom domain",
+    "startingPrice": "$20/month for 50,000 emails",
+    "costPer": "$0.0004 per email above plan limit",
+    "pricingUrl": "https://resend.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "10 emails/second, 3,000 emails/month",
+    "notes": "Paid plans have higher throughput. Rate limit headers are returned on every response.",
+    "retryStrategy": "Respect Retry-After header on 429 responses; use exponential backoff starting at 1s"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact resend",
+    "importStatement": "import { Resend } from 'resend';",
+    "otherLanguages": ["python", "ruby", "go", "php", "elixir", "rust"]
+  },
+  "codeExamples": [
+    {
+      "title": "Send a basic transactional email",
+      "language": "typescript",
+      "code": "import { Resend } from 'resend';\n\nconst resend = new Resend(process.env.RESEND_API_KEY);\n\nconst { data, error } = await resend.emails.send({\n  from: 'Acme <noreply@acme.com>',\n  to: ['user@example.com'],\n  subject: 'Your order has shipped!',\n  html: '<h1>Your order is on the way</h1><p>Track it at <a href=\"https://acme.com/track\">acme.com/track</a></p>',\n});\n\nif (error) {\n  throw new Error(`Failed to send email: ${error.message}`);\n}\n\nconsole.log('Email sent, id:', data?.id);",
+      "notes": "The 'from' address must use a verified domain. For testing without domain verification, use 'onboarding@resend.dev' as the from address."
+    },
+    {
+      "title": "Send with React Email component",
+      "language": "typescript",
+      "code": "import { Resend } from 'resend';\nimport { WelcomeEmail } from './emails/WelcomeEmail';\n\nconst resend = new Resend(process.env.RESEND_API_KEY);\n\nconst { data, error } = await resend.emails.send({\n  from: 'Acme <noreply@acme.com>',\n  to: ['user@example.com'],\n  subject: 'Welcome to Acme!',\n  react: <WelcomeEmail username=\"Jane\" verifyUrl=\"https://acme.com/verify/abc123\" />,\n});\n\nif (error) throw new Error(error.message);\nconsole.log('Sent:', data?.id);",
+      "notes": "Requires @react-email/components and react as peer dependencies. Run: npm install --save-exact @react-email/components react"
+    }
+  ],
+  "gotchas": [
+    "The 'from' address must use a verified domain — you cannot send from gmail.com or other shared domains. Use 'onboarding@resend.dev' only for initial testing, not in production.",
+    "Free tier is limited to 1 custom domain. If you need to send from multiple domains (e.g., different brands or staging vs. production), you must upgrade to a paid plan.",
+    "Resend is optimized for transactional email — bulk marketing campaigns to cold lists are against their terms of service and may result in account suspension."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% SLA on paid plans",
+    "statusPageUrl": "https://status.resend.com",
+    "notes": "Resend routes through multiple delivery providers. Average delivery time is under 5 seconds. Bounce and complaint handling is automatic."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Best-in-class developer experience with the cleanest API in the email space. First-class TypeScript, excellent React Email integration, honest pricing, and fast onboarding. Slight deduction for limited free tier domain count and no bulk email support.",
+  "alternatives": ["sendgrid", "postmark"],
+  "complementary": ["clerk", "stripe"],
+  "bestFor": "Developer-first transactional email with React Email templates and minimal setup",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

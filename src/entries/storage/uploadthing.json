@@ -1,0 +1,90 @@
+{
+  "name": "UploadThing",
+  "slug": "uploadthing",
+  "category": "storage",
+  "subcategory": "file-uploads",
+  "website": "https://uploadthing.com",
+  "description": "UploadThing is a developer-friendly file upload service designed primarily for Next.js applications. It provides end-to-end type-safe file uploads with automatic storage, a built-in file router, and seamless integration with React and Next.js — all without needing to configure S3 buckets or cloud storage directly.",
+  "useCases": [
+    {
+      "task": "Add file uploads to a Next.js application",
+      "fit": "perfect"
+    },
+    {
+      "task": "Upload user profile pictures and attachments",
+      "fit": "perfect"
+    },
+    {
+      "task": "Handle document uploads (PDFs, Word files) in a web app",
+      "fit": "good"
+    },
+    {
+      "task": "Complex media transformations like Cloudinary",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at uploadthing.com",
+      "Create a new app in the dashboard",
+      "Copy your UPLOADTHING_TOKEN from the dashboard",
+      "Set UPLOADTHING_TOKEN environment variable",
+      "Install the SDK and configure your file router (see code example)"
+    ],
+    "envVarName": "UPLOADTHING_TOKEN",
+    "codeSnippet": "import { createUploadthing } from 'uploadthing/next';\nconst f = createUploadthing();"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "2GB storage, 2GB bandwidth/month",
+    "startingPrice": "$10/month for 100GB storage, 100GB bandwidth",
+    "costPer": "$0.10/GB storage/month, $0.10/GB bandwidth after plan limits",
+    "pricingUrl": "https://uploadthing.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "2GB storage, 2GB bandwidth/month; file size limits configurable per route",
+    "notes": "Individual file size limit is set in your file router (maxFileSize option). Default is 4MB per file.",
+    "retryStrategy": "UploadThing handles retries internally. For server-side uploads, implement standard exponential backoff."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact uploadthing @uploadthing/react",
+    "importStatement": "import { createUploadthing } from 'uploadthing/next';",
+    "otherLanguages": ["solid", "svelte", "vue"]
+  },
+  "codeExamples": [
+    {
+      "title": "Configure file router (Next.js App Router)",
+      "language": "typescript",
+      "code": "// app/api/uploadthing/core.ts\nimport { createUploadthing, type FileRouter } from 'uploadthing/next';\nimport { auth } from '@clerk/nextjs/server'; // or your auth provider\n\nconst f = createUploadthing();\n\nexport const ourFileRouter = {\n  profileImageUploader: f({ image: { maxFileSize: '4MB', maxFileCount: 1 } })\n    .middleware(async () => {\n      const { userId } = await auth();\n      if (!userId) throw new Error('Unauthorized');\n      return { userId }; // Passed to onUploadComplete\n    })\n    .onUploadComplete(async ({ metadata, file }) => {\n      console.log('Upload complete for user:', metadata.userId);\n      console.log('File URL:', file.url);\n      return { uploadedBy: metadata.userId };\n    }),\n} satisfies FileRouter;\n\nexport type OurFileRouter = typeof ourFileRouter;",
+      "notes": "Create the route handler at app/api/uploadthing/route.ts using createRouteHandler({ router: ourFileRouter }). The middleware runs server-side before upload."
+    },
+    {
+      "title": "Upload component (React)",
+      "language": "typescript",
+      "code": "// components/FileUploader.tsx\n'use client';\n\nimport { UploadButton } from '@uploadthing/react';\nimport type { OurFileRouter } from '@/app/api/uploadthing/core';\n\nexport function ProfileImageUploader() {\n  return (\n    <UploadButton<OurFileRouter, 'profileImageUploader'>\n      endpoint=\"profileImageUploader\"\n      onClientUploadComplete={(res) => {\n        console.log('Files:', res);\n        alert('Upload complete!');\n      }}\n      onUploadError={(error: Error) => {\n        alert(`Upload error: ${error.message}`);\n      }}\n    />\n  );\n}",
+      "notes": "UploadButton is a pre-built React component. Use UploadDropzone for drag-and-drop. The file router type ensures full end-to-end type safety."
+    }
+  ],
+  "gotchas": [
+    "UploadThing is tightly integrated with Next.js and the App Router. Using it with other frameworks (Express, Fastify) requires more manual setup and is less well-documented.",
+    "Files are stored on UploadThing's infrastructure (Cloudflare R2 backed) — there is no option to bring your own S3 bucket on standard plans. Enterprise plans may differ.",
+    "The free tier (2GB storage) is very limited for production applications with user-uploaded content. Budget for storage costs early.",
+    "The UPLOADTHING_SECRET/UPLOADTHING_TOKEN format changed in recent SDK versions. Make sure you're using the format matching your SDK version."
+  ],
+  "reliability": {
+    "uptimeGuarantee": null,
+    "statusPageUrl": "https://status.uploadthing.com",
+    "notes": "UploadThing uses Cloudflare R2 as its backing storage. Generally very reliable. Smaller team than Cloudinary so issues take longer to resolve."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Excellent Next.js integration with type-safe file router pattern — the best developer experience for file uploads in the Next.js ecosystem. Limited to file upload/storage only (no transformations). Free tier is small. Score reflects excellent DX for its specific use case.",
+  "alternatives": ["cloudinary"],
+  "complementary": ["clerk", "openai"],
+  "bestFor": "Simple, type-safe file uploads in Next.js applications without the overhead of configuring cloud storage",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

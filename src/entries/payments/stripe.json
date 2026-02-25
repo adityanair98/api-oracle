@@ -1,0 +1,96 @@
+{
+  "name": "Stripe",
+  "slug": "stripe",
+  "category": "payments",
+  "subcategory": "payment-processing",
+  "website": "https://stripe.com",
+  "description": "Stripe is the global standard for online payment processing, offering a comprehensive suite of APIs for accepting payments, managing subscriptions, handling payouts, and building financial products. Its developer-first design and extensive documentation make it the default choice for SaaS, e-commerce, and marketplace applications.",
+  "useCases": [
+    {
+      "task": "Accept credit card and debit card payments online",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build subscription billing with recurring payments",
+      "fit": "perfect"
+    },
+    {
+      "task": "Create a marketplace with split payments and payouts",
+      "fit": "perfect"
+    },
+    {
+      "task": "Handle one-time payments with a checkout page",
+      "fit": "perfect"
+    },
+    {
+      "task": "Process payments in emerging markets like India",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at stripe.com",
+      "In the Dashboard, go to Developers > API Keys",
+      "Copy your Publishable key and Secret key",
+      "Use test keys (starting with pk_test_ and sk_test_) for development",
+      "Set STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY environment variables",
+      "Enable live mode and add bank account details before going to production"
+    ],
+    "envVarName": "STRIPE_SECRET_KEY",
+    "codeSnippet": "import Stripe from 'stripe';\nconst stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "No monthly fee — pay per transaction only",
+    "startingPrice": "2.9% + $0.30 per successful card charge (US)",
+    "costPer": "2.9% + $0.30 per transaction; additional fees for international cards, currency conversion",
+    "pricingUrl": "https://stripe.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "all tiers",
+    "limit": "100 read requests/second, 100 write requests/second per secret key",
+    "notes": "Rate limits are per API key. Live mode has higher limits than test mode. Rate limit headers (Stripe-RateLimit-*) are included in responses.",
+    "retryStrategy": "Stripe recommends idempotency keys for write operations to safely retry on network failures; use exponential backoff for 429 responses"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact stripe",
+    "importStatement": "import Stripe from 'stripe';",
+    "otherLanguages": ["python", "ruby", "java", "go", "php", "dotnet"]
+  },
+  "codeExamples": [
+    {
+      "title": "Create a payment intent (server-side)",
+      "language": "typescript",
+      "code": "import Stripe from 'stripe';\n\nconst stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);\n\n// Create a PaymentIntent on your server\nconst paymentIntent = await stripe.paymentIntents.create({\n  amount: 2000, // Amount in cents ($20.00)\n  currency: 'usd',\n  automatic_payment_methods: { enabled: true },\n  metadata: { orderId: 'order_123' },\n});\n\n// Return client_secret to the frontend\nconsole.log('Client secret:', paymentIntent.client_secret);",
+      "notes": "Always create PaymentIntents server-side. Never expose your secret key to the client. Use the client_secret to confirm payment client-side with Stripe.js."
+    },
+    {
+      "title": "Create a Checkout Session (no-code payment page)",
+      "language": "typescript",
+      "code": "import Stripe from 'stripe';\n\nconst stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);\n\nconst session = await stripe.checkout.sessions.create({\n  payment_method_types: ['card'],\n  line_items: [{\n    price_data: {\n      currency: 'usd',\n      product_data: { name: 'Pro Plan' },\n      unit_amount: 2000,\n      recurring: { interval: 'month' },\n    },\n    quantity: 1,\n  }],\n  mode: 'subscription',\n  success_url: 'https://yourapp.com/success?session_id={CHECKOUT_SESSION_ID}',\n  cancel_url: 'https://yourapp.com/cancel',\n});\n\nconsole.log('Checkout URL:', session.url);",
+      "notes": "Checkout Sessions handle the entire payment UI. Redirect users to session.url. Stripe handles PCI compliance automatically."
+    }
+  ],
+  "gotchas": [
+    "Always use idempotency keys for write requests (charge, PaymentIntent creation) to safely retry on network failures without double-charging. Pass `idempotencyKey` in the request options.",
+    "Stripe's test mode and live mode use completely separate API keys and data — test customers, cards, and charges do not carry over to live mode.",
+    "Webhook signature verification is mandatory for security. Never trust webhook payloads without verifying the Stripe-Signature header using stripe.webhooks.constructEvent().",
+    "Amount is always in the smallest currency unit (cents for USD, pence for GBP). $20.00 = 2000, not 20.",
+    "Stripe is not available in all countries. For India-specific payments with UPI and local cards, Razorpay is often a better choice."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% uptime SLA for core payment APIs",
+    "statusPageUrl": "https://status.stripe.com",
+    "notes": "Stripe's infrastructure is battle-tested at global scale. Automatic retries, redundant infrastructure, and SOC 2 Type II certified."
+  },
+  "qualityScore": 10,
+  "qualityJustification": "The gold standard for payment APIs. Unmatched documentation, TypeScript support that is genuinely excellent, comprehensive feature set (subscriptions, marketplaces, Connect, billing), and a test mode that mirrors production perfectly. The only reason to use something else is geographic availability.",
+  "alternatives": ["razorpay"],
+  "complementary": ["resend", "clerk", "auth0"],
+  "bestFor": "Online payment processing for SaaS subscriptions, e-commerce, and marketplaces in the US, EU, and most global markets",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

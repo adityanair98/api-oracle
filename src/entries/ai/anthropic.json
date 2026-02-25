@@ -1,0 +1,95 @@
+{
+  "name": "Anthropic API",
+  "slug": "anthropic",
+  "category": "ai",
+  "subcategory": "large-language-models",
+  "website": "https://www.anthropic.com/api",
+  "description": "Anthropic provides API access to the Claude family of AI models, known for exceptional reasoning, very long context windows (up to 200k tokens), strong instruction-following, and constitutional AI safety. Claude models excel at complex analysis, coding assistance, and nuanced writing tasks.",
+  "useCases": [
+    {
+      "task": "Analyze and reason over very long documents (up to 200k tokens)",
+      "fit": "perfect"
+    },
+    {
+      "task": "Generate code with high accuracy and explanations",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build AI agents that use tools and follow complex instructions",
+      "fit": "perfect"
+    },
+    {
+      "task": "Process and analyze large codebases or legal documents",
+      "fit": "perfect"
+    },
+    {
+      "task": "Generate images or audio",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at console.anthropic.com",
+      "Go to API Keys in the Console",
+      "Click 'Create Key' and give it a descriptive name",
+      "Add billing information to increase rate limits beyond free tier",
+      "Set ANTHROPIC_API_KEY environment variable"
+    ],
+    "envVarName": "ANTHROPIC_API_KEY",
+    "codeSnippet": "import Anthropic from '@anthropic-ai/sdk';\nconst anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "Limited free tier with rate-limited test access",
+    "startingPrice": "claude-haiku-4-5: $0.80/M input, $4.00/M output",
+    "costPer": "claude-sonnet-4-6: $3.00/M input, $15.00/M output; claude-opus-4-6: $15.00/M input, $75.00/M output",
+    "pricingUrl": "https://www.anthropic.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "build tier (default)",
+    "limit": "50 RPM, 40,000 input TPM for claude-sonnet on build tier",
+    "notes": "Rate limits increase as you spend more (usage tiers). Enterprise tier has custom limits with SLAs. Claude has a 200k token context window on all models.",
+    "retryStrategy": "Use exponential backoff for 529 (overloaded) and 429 (rate limit) errors; the Anthropic SDK includes automatic retry logic"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @anthropic-ai/sdk",
+    "importStatement": "import Anthropic from '@anthropic-ai/sdk';",
+    "otherLanguages": ["python", "java", "go"]
+  },
+  "codeExamples": [
+    {
+      "title": "Basic message with Claude",
+      "language": "typescript",
+      "code": "import Anthropic from '@anthropic-ai/sdk';\n\nconst anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });\n\nconst message = await anthropic.messages.create({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1024,\n  messages: [\n    {\n      role: 'user',\n      content: 'Analyze this TypeScript code and identify potential bugs: ...',\n    },\n  ],\n});\n\nconst text = message.content[0];\nif (text.type === 'text') {\n  console.log(text.text);\n}\nconsole.log('Input tokens:', message.usage.input_tokens);\nconsole.log('Output tokens:', message.usage.output_tokens);",
+      "notes": "Always check message.content[0].type before accessing .text — content blocks can be 'text' or 'tool_use'. Use claude-haiku-4-5 for cost-sensitive tasks."
+    },
+    {
+      "title": "Tool use (function calling)",
+      "language": "typescript",
+      "code": "import Anthropic from '@anthropic-ai/sdk';\n\nconst anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });\n\nconst response = await anthropic.messages.create({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1024,\n  tools: [{\n    name: 'get_weather',\n    description: 'Get current weather for a location',\n    input_schema: {\n      type: 'object' as const,\n      properties: {\n        location: { type: 'string', description: 'City name' },\n      },\n      required: ['location'],\n    },\n  }],\n  messages: [{ role: 'user', content: 'What is the weather in Tokyo?' }],\n});\n\nconst toolUse = response.content.find(block => block.type === 'tool_use');\nif (toolUse && toolUse.type === 'tool_use') {\n  console.log('Tool called:', toolUse.name);\n  console.log('Tool input:', toolUse.input);\n}",
+      "notes": "Tool use enables Claude to call your functions. After receiving a tool_use block, execute the function and return the result in a tool_result message to complete the conversation."
+    }
+  ],
+  "gotchas": [
+    "Claude's message format requires alternating user/assistant turns. You cannot send two consecutive user messages without an assistant message in between — this will throw a validation error.",
+    "The model returns content as an array of typed blocks (ContentBlock[]). Always check block.type before accessing block.text or block.input — using TypeScript's discriminated unions here prevents runtime errors.",
+    "Error code 529 ('API overloaded') is distinct from 429 (rate limit). Both require retry with backoff, but 529 means Anthropic's infrastructure is under high load, not that you exceeded your quota.",
+    "Extended thinking (beta feature) is not available on all models and significantly increases latency and cost. Only enable it for tasks that genuinely require deep multi-step reasoning.",
+    "Prompt caching can reduce costs by up to 90% for repeated large contexts (e.g., system prompts with long documents). Mark cacheable content with cache_control: { type: 'ephemeral' }."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA on Enterprise plans",
+    "statusPageUrl": "https://status.anthropic.com",
+    "notes": "Anthropic's infrastructure has improved significantly. Occasional capacity issues during high-demand periods. Enterprise tier offers priority access."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Claude models lead on reasoning, instruction-following, and long-context tasks. Excellent TypeScript SDK, 200k context window, and strong safety properties. Pricing is competitive. Slight deductions vs OpenAI for smaller ecosystem and fewer modalities (no image gen).",
+  "alternatives": ["openai"],
+  "complementary": ["uploadthing", "cloudinary"],
+  "bestFor": "Complex reasoning, long-document analysis, code generation, and AI agents with tools — especially where instruction-following quality matters",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

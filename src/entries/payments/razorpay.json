@@ -1,0 +1,85 @@
+{
+  "name": "Razorpay",
+  "slug": "razorpay",
+  "category": "payments",
+  "subcategory": "payment-processing",
+  "website": "https://razorpay.com",
+  "description": "Razorpay is India's leading payment gateway, providing a complete payment suite that supports UPI, Netbanking, credit/debit cards, wallets, and EMI — the full spectrum of Indian payment methods. It is the go-to choice for businesses targeting Indian consumers.",
+  "useCases": [
+    {
+      "task": "Accept payments in India with UPI, Netbanking, and cards",
+      "fit": "perfect"
+    },
+    {
+      "task": "Process Indian payments including UPI and local wallets",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build subscription billing for Indian customers",
+      "fit": "good"
+    },
+    {
+      "task": "Accept international credit card payments globally",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "basic_auth",
+    "setupSteps": [
+      "Sign up at razorpay.com with a valid Indian business",
+      "Complete KYC verification (PAN card, bank account details)",
+      "Go to Settings > API Keys",
+      "Generate your Key ID and Key Secret",
+      "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables",
+      "Use test mode keys (rzp_test_*) for development"
+    ],
+    "envVarName": "RAZORPAY_KEY_SECRET",
+    "codeSnippet": "import Razorpay from 'razorpay';\nconst razorpay = new Razorpay({\n  key_id: process.env.RAZORPAY_KEY_ID!,\n  key_secret: process.env.RAZORPAY_KEY_SECRET!,\n});"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "No monthly fee — transaction fees only",
+    "startingPrice": "2% per transaction (domestic Indian payments)",
+    "costPer": "2% for domestic cards/UPI/Netbanking; 3% for international cards; GST additional",
+    "pricingUrl": "https://razorpay.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "all tiers",
+    "limit": "No published hard API rate limit; practical limit varies by plan",
+    "notes": "Razorpay enforces limits per account tier. High-volume merchants should contact Razorpay for custom limits.",
+    "retryStrategy": "Use idempotency keys for order creation; retry failed requests with exponential backoff"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact razorpay",
+    "importStatement": "import Razorpay from 'razorpay';",
+    "otherLanguages": ["python", "java", "php", "ruby", "go"]
+  },
+  "codeExamples": [
+    {
+      "title": "Create an order and accept payment",
+      "language": "typescript",
+      "code": "import Razorpay from 'razorpay';\nimport crypto from 'crypto';\n\nconst razorpay = new Razorpay({\n  key_id: process.env.RAZORPAY_KEY_ID!,\n  key_secret: process.env.RAZORPAY_KEY_SECRET!,\n});\n\n// Step 1: Create order (server-side)\nconst order = await razorpay.orders.create({\n  amount: 50000, // Amount in paise (₹500.00)\n  currency: 'INR',\n  receipt: 'order_receipt_123',\n});\n\n// Step 2: Verify payment signature (after frontend completes payment)\nfunction verifyPayment(orderId: string, paymentId: string, signature: string): boolean {\n  const body = `${orderId}|${paymentId}`;\n  const expectedSignature = crypto\n    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)\n    .update(body)\n    .digest('hex');\n  return expectedSignature === signature;\n}\n\nconsole.log('Order created:', order.id);",
+      "notes": "Amount is in paise (smallest INR unit). ₹500 = 50000 paise. Always verify the payment signature server-side before fulfilling orders."
+    }
+  ],
+  "gotchas": [
+    "Amount is in paise, not rupees — ₹100 = 10000 paise. This is a common source of 100x pricing errors in production.",
+    "KYC verification is mandatory and can take 2-5 business days. Plan for this in your launch timeline — you cannot accept live payments without completing KYC.",
+    "Always verify the payment signature (HMAC-SHA256) server-side after the frontend receives razorpay_payment_id. Skipping this step allows anyone to fake a successful payment.",
+    "Razorpay is primarily built for Indian businesses with Indian bank accounts. International businesses face significant friction during onboarding and may be rejected."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA",
+    "statusPageUrl": "https://status.razorpay.com",
+    "notes": "Razorpay processes a significant percentage of India's digital payments. Infrastructure is robust but primarily India-focused."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "The best and most comprehensive solution for Indian payments with excellent UPI support. TypeScript SDK is solid. Primary limitation is geographic scope — this is an India-first solution. The KYC requirement adds onboarding time.",
+  "alternatives": ["stripe"],
+  "complementary": ["resend", "clerk"],
+  "bestFor": "Payments for Indian consumers — UPI, Netbanking, wallets, and local cards all in one API",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

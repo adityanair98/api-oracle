@@ -1,0 +1,95 @@
+{
+  "name": "OpenAI API",
+  "slug": "openai",
+  "category": "ai",
+  "subcategory": "large-language-models",
+  "website": "https://platform.openai.com",
+  "description": "OpenAI provides API access to GPT-4, GPT-4o, and other frontier AI models for text generation, reasoning, image generation, embeddings, and more. It is the most widely adopted AI API with extensive documentation, community resources, and a broad feature set.",
+  "useCases": [
+    {
+      "task": "Generate text using GPT-4 or GPT-4o language models",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build a conversational AI chatbot",
+      "fit": "perfect"
+    },
+    {
+      "task": "Generate embeddings for semantic search or RAG",
+      "fit": "perfect"
+    },
+    {
+      "task": "Generate images with DALL-E",
+      "fit": "good"
+    },
+    {
+      "task": "Transcribe audio to text with Whisper",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "bearer_token",
+    "setupSteps": [
+      "Sign up at platform.openai.com",
+      "Go to API Keys under your account settings",
+      "Click 'Create new secret key'",
+      "Add billing information (required even for free trial)",
+      "Set OPENAI_API_KEY environment variable"
+    ],
+    "envVarName": "OPENAI_API_KEY",
+    "codeSnippet": "import OpenAI from 'openai';\nconst openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "No free tier (free trial credits expire); pay per token",
+    "startingPrice": "gpt-4o-mini: $0.15/M input tokens, $0.60/M output tokens",
+    "costPer": "gpt-4o: $2.50/M input, $10.00/M output; gpt-4o-mini: $0.15/M input, $0.60/M output",
+    "pricingUrl": "https://openai.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "tier 1 (default)",
+    "limit": "500 RPM, 30,000 TPM for gpt-4o on Tier 1",
+    "notes": "Rate limits scale with spend tier (Tier 1-5). Limits are per model, not account-wide. Higher tiers unlock higher throughput automatically as you spend more.",
+    "retryStrategy": "Use exponential backoff with jitter for 429 errors; the openai SDK has built-in retry logic via maxRetries option"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact openai",
+    "importStatement": "import OpenAI from 'openai';",
+    "otherLanguages": ["python", "java", "go", "dotnet"]
+  },
+  "codeExamples": [
+    {
+      "title": "Chat completion with GPT-4o",
+      "language": "typescript",
+      "code": "import OpenAI from 'openai';\n\nconst openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });\n\nconst response = await openai.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'system', content: 'You are a helpful assistant.' },\n    { role: 'user', content: 'Explain quantum entanglement in one paragraph.' },\n  ],\n  max_tokens: 500,\n  temperature: 0.7,\n});\n\nconsole.log(response.choices[0]?.message.content);\nconsole.log('Tokens used:', response.usage?.total_tokens);",
+      "notes": "Always track token usage for cost monitoring. Use gpt-4o-mini for cost-sensitive applications — it's ~17x cheaper for most tasks."
+    },
+    {
+      "title": "Generate embeddings for semantic search",
+      "language": "typescript",
+      "code": "import OpenAI from 'openai';\n\nconst openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });\n\nconst response = await openai.embeddings.create({\n  model: 'text-embedding-3-small',\n  input: 'The quick brown fox jumps over the lazy dog',\n  encoding_format: 'float',\n});\n\nconst embedding = response.data[0]?.embedding;\nconsole.log('Embedding dimensions:', embedding?.length); // 1536 for text-embedding-3-small",
+      "notes": "text-embedding-3-small is the recommended embedding model: $0.02/M tokens and 1536 dimensions. Use for RAG, similarity search, and clustering."
+    }
+  ],
+  "gotchas": [
+    "Token costs accumulate quickly with large contexts. Always set max_tokens and monitor usage. A 128k context window doesn't mean you should always use it — long prompts are expensive.",
+    "API keys are scoped to an organization. If you work with multiple projects/clients, use separate organizations or project-level API keys to isolate billing and prevent accidental cross-contamination.",
+    "Model names change and older models get deprecated. Pin to specific model versions (e.g., 'gpt-4o-2024-08-06') in production to avoid unexpected capability changes from model updates.",
+    "The free trial credits expire after a short time period. You must add billing information to continue using the API after the trial.",
+    "Streaming responses require different handling — use openai.chat.completions.stream() and handle the async iterator pattern."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "No published SLA for standard tier; Enterprise plan offers SLA",
+    "statusPageUrl": "https://status.openai.com",
+    "notes": "OpenAI has had occasional outages and capacity issues during high-demand periods. For production applications, implement fallback models or providers."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Most capable models available, largest ecosystem, best-in-class TypeScript SDK, and the most documented AI API. Slight deductions for no free tier, occasional reliability issues, and usage-based costs that can surprise teams without monitoring.",
+  "alternatives": ["anthropic"],
+  "complementary": ["uploadthing", "cloudinary"],
+  "bestFor": "General-purpose LLM tasks including chat, reasoning, embeddings, and image generation with the broadest model selection",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

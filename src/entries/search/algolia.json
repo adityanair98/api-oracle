@@ -1,0 +1,96 @@
+{
+  "name": "Algolia",
+  "slug": "algolia",
+  "category": "search",
+  "subcategory": "hosted-search",
+  "website": "https://www.algolia.com",
+  "description": "Algolia is a hosted search API that delivers sub-100ms search results with typo tolerance, faceting, and relevance tuning. It is the standard for adding fast, user-facing search to e-commerce, documentation sites, and SaaS applications — without the complexity of running Elasticsearch.",
+  "useCases": [
+    {
+      "task": "Add real-time search with typo tolerance to a web application",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build e-commerce product search with filtering and facets",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add instant search to a documentation site",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build search autocomplete and suggestions",
+      "fit": "perfect"
+    },
+    {
+      "task": "Full-text search on unstructured text without indexing",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at algolia.com",
+      "Create a new Application",
+      "Go to Settings > API Keys",
+      "Copy the Application ID, Search-Only API Key (for frontend), and Admin API Key (for indexing)",
+      "Set ALGOLIA_APP_ID, ALGOLIA_SEARCH_API_KEY, and ALGOLIA_ADMIN_API_KEY environment variables",
+      "Never expose the Admin API Key on the frontend — use the Search-Only key in client code"
+    ],
+    "envVarName": "ALGOLIA_ADMIN_API_KEY",
+    "codeSnippet": "import algoliasearch from 'algoliasearch';\nconst client = algoliasearch(process.env.ALGOLIA_APP_ID!, process.env.ALGOLIA_ADMIN_API_KEY!);\nconst index = client.initIndex('products');"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "10,000 records, 10,000 search requests/month",
+    "startingPrice": "$50/month (Grow plan) for higher limits",
+    "costPer": "Varies by plan; roughly $1/1,000 search operations beyond plan limits",
+    "pricingUrl": "https://www.algolia.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "10,000 search operations/month, 10,000 records, 10 indices",
+    "notes": "An 'operation' is counted per index searched. If you search 3 indices per query, that's 3 operations per search. Rate limits on API calls are generous (unlimited on paid plans).",
+    "retryStrategy": "Algolia's client SDK handles retries and failover automatically. The SDK retries against multiple hosts for reliability."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact algoliasearch",
+    "importStatement": "import algoliasearch from 'algoliasearch';",
+    "otherLanguages": ["python", "ruby", "java", "php", "go", "swift", "kotlin", "scala"]
+  },
+  "codeExamples": [
+    {
+      "title": "Index records and search",
+      "language": "typescript",
+      "code": "import algoliasearch from 'algoliasearch';\n\n// Admin client for indexing (server-side only)\nconst client = algoliasearch(\n  process.env.ALGOLIA_APP_ID!,\n  process.env.ALGOLIA_ADMIN_API_KEY!\n);\nconst index = client.initIndex('products');\n\n// Index some records\nawait index.saveObjects([\n  { objectID: '1', name: 'iPhone 15 Pro', brand: 'Apple', price: 999 },\n  { objectID: '2', name: 'Galaxy S24', brand: 'Samsung', price: 899 },\n]);\n\n// Search\nconst { hits } = await index.search('iphone', {\n  hitsPerPage: 10,\n  filters: 'price < 1000',\n});\n\nconsole.log('Results:', hits.map(h => h.name));",
+      "notes": "Always provide objectID for each record. Without it, Algolia generates one, making updates and deletes harder. Use saveObject() for upserts."
+    },
+    {
+      "title": "React InstantSearch (frontend)",
+      "language": "typescript",
+      "code": "import { liteClient } from 'algoliasearch/lite';\nimport { InstantSearch, SearchBox, Hits } from 'react-instantsearch';\n\nconst searchClient = liteClient(\n  process.env.NEXT_PUBLIC_ALGOLIA_APP_ID!,\n  process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY! // Search-only key\n);\n\nfunction ProductHit({ hit }: { hit: Record<string, unknown> }) {\n  return <div>{String(hit.name)} — ${String(hit.price)}</div>;\n}\n\nexport function ProductSearch() {\n  return (\n    <InstantSearch searchClient={searchClient} indexName=\"products\">\n      <SearchBox placeholder=\"Search products...\" />\n      <Hits hitComponent={ProductHit} />\n    </InstantSearch>\n  );\n}",
+      "notes": "Use algoliasearch/lite on the frontend for a smaller bundle. Use your Search-Only API key in NEXT_PUBLIC_ env vars — never the Admin key."
+    }
+  ],
+  "gotchas": [
+    "The Admin API key has full write access including deleting your entire index. Never expose it in client-side code. Use the Search-Only API key for all frontend/client usage.",
+    "Algolia counts 'operations' not requests. A single search that touches multiple indices counts as multiple operations. With 10,000 operations/month on the free tier, this is easy to exhaust with moderate traffic.",
+    "Records must be JSON objects with a maximum size of 10KB. Large text content must be chunked before indexing. Images and binary files cannot be stored — only their metadata.",
+    "Index settings (searchable attributes, ranking, facets) must be configured explicitly. The defaults are reasonable but production search quality requires tuning ranking formulas and facet configuration.",
+    "Algolia is not free for any meaningful production traffic. The 10k operation free tier is exhausted quickly. Budget for at least $50/month if you have real users."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% SLA on paid plans; distributed across 3 data centers per cluster",
+    "statusPageUrl": "https://status.algolia.com",
+    "notes": "Algolia's search infrastructure is globally distributed with automatic failover. Average response time is under 10ms."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "The gold standard for hosted search — unmatched search quality, excellent TypeScript SDK, and great documentation. The pricing model (per operation, not per query) is confusing and expensive at scale. For simple use cases, the free tier is exhausted quickly. Excellent product, challenging economics.",
+  "alternatives": [],
+  "complementary": ["stripe", "cloudinary"],
+  "bestFor": "Real-time site search with typo tolerance, facets, and sub-100ms responses for e-commerce and documentation sites",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

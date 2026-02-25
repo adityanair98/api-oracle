@@ -1,0 +1,95 @@
+{
+  "name": "Clerk",
+  "slug": "clerk",
+  "category": "auth",
+  "subcategory": "authentication-platform",
+  "website": "https://clerk.com",
+  "description": "Clerk is a complete authentication and user management platform with drop-in UI components for sign-up, sign-in, and user profiles. It handles OAuth providers, passkeys, magic links, multi-factor authentication, and organizations out-of-the-box — making it the fastest way to add auth to a Next.js or React application.",
+  "useCases": [
+    {
+      "task": "Add complete authentication (sign-up, sign-in, OAuth) to a Next.js app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Implement multi-tenant organizations and team management",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add social login (Google, GitHub, etc.) to a web app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Protect API routes and server components with authentication",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build custom authentication flows from scratch",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at clerk.com",
+      "Create a new application in the Clerk Dashboard",
+      "Configure authentication providers (email, Google, GitHub, etc.)",
+      "Copy your Publishable Key and Secret Key",
+      "Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY environment variables",
+      "Wrap your app with <ClerkProvider> and add middleware"
+    ],
+    "envVarName": "CLERK_SECRET_KEY",
+    "codeSnippet": "import { ClerkProvider } from '@clerk/nextjs';\n// In middleware.ts:\nimport { clerkMiddleware } from '@clerk/nextjs/server';\nexport default clerkMiddleware();"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "10,000 monthly active users (MAU), all core features",
+    "startingPrice": "$25/month for 10,001-100,000 MAU",
+    "costPer": "$0.02 per MAU above free tier (Pro plan)",
+    "pricingUrl": "https://clerk.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "No API rate limits documented; frontend auth calls managed by Clerk's infrastructure",
+    "notes": "Rate limits are handled by Clerk's infrastructure. Unusual activity triggers automatic protection.",
+    "retryStrategy": "Clerk SDK handles retries internally. Implement standard retry for backend API calls to Clerk's REST API."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @clerk/nextjs",
+    "importStatement": "import { ClerkProvider, SignIn, SignUp, useUser } from '@clerk/nextjs';",
+    "otherLanguages": ["react", "remix", "astro", "express", "fastify", "hono"]
+  },
+  "codeExamples": [
+    {
+      "title": "Protect a Next.js route and get current user",
+      "language": "typescript",
+      "code": "// middleware.ts (protects all routes by default)\nimport { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';\n\nconst isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)', '/']);\n\nexport default clerkMiddleware(async (auth, request) => {\n  if (!isPublicRoute(request)) {\n    await auth.protect(); // Redirects to sign-in if not authenticated\n  }\n});\n\nexport const config = {\n  matcher: ['/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)', '/(api|trpc)(.*)'],\n};",
+      "notes": "clerkMiddleware is the recommended approach for Next.js App Router. Add the matcher to skip static files."
+    },
+    {
+      "title": "Get user in a Server Component",
+      "language": "typescript",
+      "code": "// app/dashboard/page.tsx\nimport { auth, currentUser } from '@clerk/nextjs/server';\nimport { redirect } from 'next/navigation';\n\nexport default async function DashboardPage() {\n  const { userId } = await auth();\n  \n  if (!userId) {\n    redirect('/sign-in');\n  }\n  \n  const user = await currentUser();\n  \n  return (\n    <div>\n      <h1>Welcome, {user?.firstName}!</h1>\n      <p>Your ID: {userId}</p>\n    </div>\n  );\n}",
+      "notes": "Use auth() for just the userId (fast, no extra API call). Use currentUser() for full profile data. Both are server-only."
+    }
+  ],
+  "gotchas": [
+    "Clerk's pricing is based on Monthly Active Users (MAU), not API calls. An MAU is any user who authenticates at least once per month. With a large but mostly dormant user base, this is very cost-effective. With a highly active user base, plan carefully.",
+    "The middleware matcher must be configured correctly — missing routes in the matcher means they won't be protected. The default matcher skips static files and _next — copy it exactly from the docs.",
+    "Clerk creates its own User object with a Clerk user ID (clerkId). You typically need to sync this to your own database on first sign-in using Clerk webhooks. Plan this user sync from day one.",
+    "Clerk components (SignIn, SignUp, UserButton) use an iframe in some modes, which can cause CSP (Content Security Policy) issues. Configure your CSP to allow Clerk's domains."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% uptime SLA on Enterprise plans",
+    "statusPageUrl": "https://status.clerk.com",
+    "notes": "Clerk's infrastructure is highly available with global edge deployment. Authentication flows are critical path — Clerk treats this accordingly."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Best developer experience for adding auth to Next.js applications. Exceptional TypeScript support, beautiful pre-built components, generous free tier, and comprehensive feature set. Minor deductions for potential complexity with custom auth flows and the user sync webhook requirement.",
+  "alternatives": ["auth0"],
+  "complementary": ["resend", "stripe", "uploadthing"],
+  "bestFor": "Drop-in authentication with pre-built UI for Next.js and React applications, especially with social auth and multi-tenancy needs",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-1"
+}

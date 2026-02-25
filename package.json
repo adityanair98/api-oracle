@@ -1,0 +1,26 @@
+{
+  "name": "api-oracle",
+  "version": "0.1.0",
+  "description": "MCP server that finds, evaluates, and recommends the best API for any programming task",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate": "tsx scripts/validate-entries.ts",
+    "seed": "tsx scripts/seed-db.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "better-sqlite3": "12.6.2",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "25.3.0",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  }
+}

@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate": "tsx scripts/validate-entries.ts",
-    "seed": "tsx scripts/seed-db.ts"
+    "seed": "tsx scripts/seed-db.ts",
+    "e2e": "tsx scripts/e2e-test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.27.1",

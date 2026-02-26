@@ -10,20 +10,32 @@ Each API is a single JSON file stored in `src/entries/<category>/`. The file mus
 
 ### 1. Choose the right category
 
-Available categories:
-- `email` — email delivery (Resend, SendGrid, Postmark)
-- `payments` — payment processing (Stripe, Razorpay)
-- `ai` — AI/LLM APIs (OpenAI, Anthropic)
+Available categories (23 total):
+- `email` — email delivery (Resend, SendGrid, Postmark, Mailgun)
+- `payments` — payment processing (Stripe, Paddle, LemonSqueezy, PayPal)
+- `ai` — AI/LLM APIs (OpenAI, Anthropic, Stability AI, ElevenLabs)
 - `storage` — file and media storage (Cloudinary, UploadThing)
-- `search` — search and indexing (Algolia)
+- `search` — search and indexing (Algolia, Typesense)
 - `auth` — authentication (Clerk, Auth0)
-- `messaging` — SMS, chat, webhooks
-- `analytics` — event tracking, dashboards
-- `database` — hosted databases
-- `media` — audio/video processing
-- `notifications` — push notifications
-- `maps` — geolocation
-- `communication` — voice, video
+- `messaging` — SMS, voice, telephony (Twilio, Vonage, Pusher, Ably)
+- `analytics` — event tracking, dashboards (Mixpanel, PostHog, Segment)
+- `database` — hosted databases (Supabase, Firebase, Neon, PlanetScale, Upstash)
+- `media` — audio/video processing (Mux, Deepgram)
+- `notifications` — push notifications (OneSignal, Knock, Novu)
+- `maps` — geolocation (Google Maps, Mapbox)
+- `communication` — chat, video (Stream Chat, Sendbird, Daily.co)
+- `devops` — deployment and hosting (Vercel, Netlify, Railway, Fly.io)
+- `infrastructure` — cloud storage and compute (AWS S3, Cloudflare R2, Cloudflare Workers, DigitalOcean Spaces)
+- `commerce` — ecommerce (Shopify API, Medusa)
+- `cms` — content management (Contentful, Sanity, Strapi)
+- `forms` — form handling (Typeform, Formspark)
+- `scheduling` — calendar and booking (Cal.com, Calendly)
+- `testing` — QA and monitoring (BrowserStack, Checkly)
+- `security` — security tooling (Snyk, Arcjet)
+- `workflow` — background jobs (Trigger.dev, Inngest, Temporal)
+- `integration` — API connectors (Zapier, Nango)
+
+To add a new category, add the value to the `category` enum in `src/knowledge/schema.ts` first.
 
 ### 2. Create the file
 
@@ -124,13 +136,14 @@ Examples: `resend`, `stripe`, `auth0`, `open-banking`
 - Code examples: Test that they actually run
 - Gotchas: Should be things a developer would actually hit
 
-### 5. Validate
+### 5. Validate and lint
 
 ```bash
-npm run validate
+npm run validate                             # schema + cross-reference check
+npm run lint-entries -- --slug=<your-slug>  # content quality check
 ```
 
-This runs the Zod schema against all JSON files. Fix any errors before proceeding.
+Fix all errors and warnings before proceeding.
 
 ### 6. Seed the database
 

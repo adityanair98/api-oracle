@@ -537,9 +537,10 @@ const CATEGORY_DETECTORS: CategoryPattern[] = [
   {
     category: "integration",
     patterns: [
-      /\bintegration\b/i, /\bno.?code.*automat/i, /\bzapier\b/i,
-      /\bnango\b/i, /\boauth.*connect\b/i, /\bsaas.*connect\b/i,
-      /\bconnect.*third.?party\b/i, /\bwebhook.*forward\b/i,
+      /\bintegration\b/i, /\bno.?code.*automat/i, /\bautomat.*no.?code/i,
+      /\bzapier\b/i, /\bnango\b/i, /\boauth.*connect\b/i,
+      /\bsaas.*connect\b/i, /\bconnect.*third.?party\b/i,
+      /\bwebhook.*forward\b/i, /\bconnect.*apps?\b/i,
     ],
     weight: 0.4,
   },

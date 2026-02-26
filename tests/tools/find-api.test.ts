@@ -99,4 +99,86 @@ describe("find_best_api tool (via findApis)", () => {
     expect(entry.codeExamples.length).toBeGreaterThan(0);
     expect(entry.gotchas.length).toBeGreaterThanOrEqual(2);
   });
+
+  // ─── New category scenarios (Session 4) ──────────────────────────────────
+
+  it("'deploy a Next.js app' returns a devops/hosting API in top results", () => {
+    const results = findApis("deploy a Next.js app to production", undefined, 5);
+    expect(results.length).toBeGreaterThan(0);
+    const topSlugs = results.map((r) => r.entry.slug);
+    const hasDevOps = topSlugs.some((s) =>
+      ["vercel", "netlify", "railway", "fly-io"].includes(s)
+    );
+    expect(hasDevOps).toBe(true);
+  });
+
+  it("'store user-uploaded files' returns a storage/infrastructure API", () => {
+    const results = findApis("store user-uploaded files with a CDN", undefined, 5);
+    expect(results.length).toBeGreaterThan(0);
+    const topSlugs = results.map((r) => r.entry.slug);
+    const hasStorage = topSlugs.some((s) =>
+      ["aws-s3", "cloudflare-r2", "cloudinary", "uploadthing", "digital-ocean-spaces"].includes(s)
+    );
+    expect(hasStorage).toBe(true);
+  });
+
+  it("'add a blog or CMS' returns a CMS API in top results", () => {
+    const results = findApis("add a headless CMS for blog content", undefined, 5);
+    expect(results.length).toBeGreaterThan(0);
+    const topSlugs = results.map((r) => r.entry.slug);
+    const hasCms = topSlugs.some((s) =>
+      ["contentful", "sanity", "strapi"].includes(s)
+    );
+    expect(hasCms).toBe(true);
+  });
+
+  it("'embed a survey or contact form' returns a forms API", () => {
+    const results = findApis("embed a survey or contact form in my app", undefined, 5);
+    expect(results.length).toBeGreaterThan(0);
+    const topSlugs = results.map((r) => r.entry.slug);
+    const hasForms = topSlugs.some((s) =>
+      ["typeform", "formspark"].includes(s)
+    );
+    expect(hasForms).toBe(true);
+  });
+
+  it("'let users book meetings' returns a scheduling API", () => {
+    const results = findApis("let users book meetings and appointments", undefined, 5);
+    expect(results.length).toBeGreaterThan(0);
+    const topSlugs = results.map((r) => r.entry.slug);
+    const hasScheduling = topSlugs.some((s) =>
+      ["cal-com", "calendly"].includes(s)
+    );
+    expect(hasScheduling).toBe(true);
+  });
+
+  it("'run background jobs' returns a workflow API", () => {
+    const results = findApis("run background jobs and async tasks", undefined, 5);
+    expect(results.length).toBeGreaterThan(0);
+    const topSlugs = results.map((r) => r.entry.slug);
+    const hasWorkflow = topSlugs.some((s) =>
+      ["trigger-dev", "inngest", "temporal"].includes(s)
+    );
+    expect(hasWorkflow).toBe(true);
+  });
+
+  it("'scan for security vulnerabilities' returns a security API", () => {
+    const results = findApis("scan my dependencies for security vulnerabilities", undefined, 5);
+    expect(results.length).toBeGreaterThan(0);
+    const topSlugs = results.map((r) => r.entry.slug);
+    const hasSecurity = topSlugs.some((s) =>
+      ["snyk", "arcjet"].includes(s)
+    );
+    expect(hasSecurity).toBe(true);
+  });
+
+  it("'connect SaaS apps via no-code automation' returns an integration API", () => {
+    const results = findApis("connect SaaS apps with no-code automation like Zapier", undefined, 5);
+    expect(results.length).toBeGreaterThan(0);
+    const topSlugs = results.map((r) => r.entry.slug);
+    const hasIntegration = topSlugs.some((s) =>
+      ["zapier", "nango"].includes(s)
+    );
+    expect(hasIntegration).toBe(true);
+  });
 });

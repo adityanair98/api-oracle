@@ -1,0 +1,93 @@
+{
+  "name": "Strapi",
+  "slug": "strapi",
+  "category": "cms",
+  "subcategory": "headless-cms",
+  "website": "https://strapi.io",
+  "description": "Strapi is the leading open source headless CMS built with Node.js. Self-hosted on your own infrastructure, Strapi generates a REST and GraphQL API automatically from your content types. The admin panel is a React app included with the server. No vendor lock-in, full ownership of data, and a large plugin ecosystem. Strapi v5 (2024) brings improved TypeScript support.",
+  "useCases": [
+    {
+      "task": "Build a self-hosted headless CMS with auto-generated REST/GraphQL API",
+      "fit": "perfect"
+    },
+    {
+      "task": "Give a client a custom admin panel for managing website content",
+      "fit": "perfect"
+    },
+    {
+      "task": "Migrate from WordPress to a headless CMS with API access",
+      "fit": "good"
+    },
+    {
+      "task": "Build a multi-tenant CMS with role-based access control",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Run `npx create-strapi@latest my-project` to scaffold a new Strapi project",
+      "Choose a database (SQLite for local dev, PostgreSQL for production)",
+      "Start the server with `npm run develop` and open http://localhost:1337/admin",
+      "Create an admin account on first launch",
+      "Navigate to Settings → API Tokens → Create new API Token",
+      "Choose token type (Read-only, Full access, or Custom) and set an expiry",
+      "Copy the generated token — it is shown only once",
+      "Set STRAPI_API_TOKEN and STRAPI_URL environment variables in your client application"
+    ],
+    "envVarName": "STRAPI_API_TOKEN",
+    "codeSnippet": "const STRAPI_URL = process.env.STRAPI_URL ?? 'http://localhost:1337';\nconst STRAPI_TOKEN = process.env.STRAPI_API_TOKEN!;\n\nconst response = await fetch(`${STRAPI_URL}/api/articles?populate=*`, {\n  headers: {\n    Authorization: `Bearer ${STRAPI_TOKEN}`,\n    'Content-Type': 'application/json',\n  },\n});\n\nconst data = await response.json();"
+  },
+  "pricing": {
+    "model": "open_source",
+    "freeTier": "Self-hosted: free forever. Strapi Cloud starts at $29/month for managed hosting.",
+    "startingPrice": "Self-hosted: your infrastructure costs (Railway from $5/month). Strapi Cloud: $29/month (Developer)",
+    "costPer": null,
+    "pricingUrl": "https://strapi.io/pricing"
+  },
+  "rateLimits": {
+    "tier": "self-hosted",
+    "limit": "No built-in rate limits — determined by your server. Add koa-ratelimit or similar middleware for production.",
+    "notes": "Strapi does not implement rate limiting out of the box. In production, add rate limiting at the reverse proxy (nginx) or middleware level. Strapi Cloud has built-in rate limiting.",
+    "retryStrategy": "Standard HTTP retry with exponential backoff. For self-hosted, configure your own rate limiting middleware."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @strapi/sdk-js",
+    "importStatement": "import { createStrapiClient } from '@strapi/sdk-js';",
+    "otherLanguages": ["javascript", "python", "php", "ruby"]
+  },
+  "codeExamples": [
+    {
+      "title": "Fetch content from Strapi REST API",
+      "language": "typescript",
+      "code": "const STRAPI_URL = process.env.STRAPI_URL ?? 'http://localhost:1337';\nconst STRAPI_TOKEN = process.env.STRAPI_API_TOKEN!;\n\ninterface StrapiArticle {\n  id: number;\n  documentId: string;\n  title: string;\n  slug: string;\n  content: string;\n  publishedAt: string | null;\n  cover: {\n    url: string;\n    alternativeText: string | null;\n  } | null;\n}\n\ninterface StrapiListResponse<T> {\n  data: T[];\n  meta: {\n    pagination: {\n      page: number;\n      pageSize: number;\n      pageCount: number;\n      total: number;\n    };\n  };\n}\n\nasync function getArticles(page = 1, pageSize = 10): Promise<StrapiArticle[]> {\n  const params = new URLSearchParams({\n    'pagination[page]': String(page),\n    'pagination[pageSize]': String(pageSize),\n    'populate[cover][fields][0]': 'url',\n    'populate[cover][fields][1]': 'alternativeText',\n    'sort[0]': 'publishedAt:desc',\n  });\n\n  const response = await fetch(`${STRAPI_URL}/api/articles?${params}`, {\n    headers: {\n      Authorization: `Bearer ${STRAPI_TOKEN}`,\n      'Content-Type': 'application/json',\n    },\n    next: { revalidate: 60 }, // Next.js ISR cache hint\n  });\n\n  if (!response.ok) {\n    throw new Error(`Strapi fetch failed: ${response.status} ${response.statusText}`);\n  }\n\n  const json: StrapiListResponse<StrapiArticle> = await response.json();\n  return json.data;\n}\n\nconst articles = await getArticles(1, 10);\nconsole.log('Articles:', articles);",
+      "notes": "Strapi v5 uses a flat response format — data is returned directly without the `attributes` wrapper used in v4. The `populate` parameter controls which relations are included. Use `populate=*` for all relations or specify fields explicitly for better performance."
+    },
+    {
+      "title": "Create an entry via REST API",
+      "language": "typescript",
+      "code": "const STRAPI_URL = process.env.STRAPI_URL ?? 'http://localhost:1337';\nconst STRAPI_TOKEN = process.env.STRAPI_API_TOKEN!;\n\ninterface CreateArticleInput {\n  title: string;\n  slug: string;\n  content: string;\n  publishedAt?: string; // set to null to create as draft\n}\n\ninterface StrapiCreateResponse {\n  data: {\n    id: number;\n    documentId: string;\n    title: string;\n    slug: string;\n    content: string;\n    publishedAt: string | null;\n    createdAt: string;\n    updatedAt: string;\n  };\n}\n\nasync function createArticle(input: CreateArticleInput): Promise<StrapiCreateResponse['data']> {\n  const response = await fetch(`${STRAPI_URL}/api/articles`, {\n    method: 'POST',\n    headers: {\n      Authorization: `Bearer ${STRAPI_TOKEN}`,\n      'Content-Type': 'application/json',\n    },\n    body: JSON.stringify({\n      data: {\n        title: input.title,\n        slug: input.slug,\n        content: input.content,\n        publishedAt: input.publishedAt ?? null, // null = draft, ISO string = published\n      },\n    }),\n  });\n\n  if (!response.ok) {\n    const error = await response.json();\n    throw new Error(`Failed to create article: ${JSON.stringify(error)}`);\n  }\n\n  const json: StrapiCreateResponse = await response.json();\n  console.log('Created article with ID:', json.data.id, 'documentId:', json.data.documentId);\n  return json.data;\n}\n\nawait createArticle({\n  title: 'My First Article',\n  slug: 'my-first-article',\n  content: 'This is the body of the article.',\n  publishedAt: new Date().toISOString(), // publish immediately\n});",
+      "notes": "The POST body must be wrapped in a `data` key — this is required by Strapi's REST API. Omit `publishedAt` or set it to null to save as a draft. The `documentId` field (Strapi v5) is a stable UUID used for referencing documents across locales; the `id` is a numeric database row ID."
+    }
+  ],
+  "gotchas": [
+    "Strapi's content types and plugins are defined in JavaScript/TypeScript config files that live in your project. Every time you change a content type schema in the admin panel, it modifies files on disk and requires a server restart (and redeploy in production). Strapi is NOT a stateless API — schema changes are code changes.",
+    "Using SQLite in production is strongly discouraged by Strapi — it doesn't support concurrent writes and can corrupt under load. Always use PostgreSQL for production. SQLite is only for local development.",
+    "Strapi v4 and v5 have different API response formats. v4 wraps responses in `{ data: { id, attributes: {...} } }`. v5 changed this to a flat structure. Tutorials and plugins written for v4 will break on v5. Pin your Strapi version or audit plugins before upgrading.",
+    "The Strapi admin panel is served from the same process as the API. Under heavy API traffic, the admin panel can become slow or unresponsive. For production, consider running admin and API as separate Strapi instances."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "Self-hosted — your responsibility; Strapi Cloud: 99.9% SLA",
+    "statusPageUrl": null,
+    "notes": "Use Railway or Fly.io with a managed Postgres database. Strapi Cloud provides managed hosting with automatic backups."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Most popular open source headless CMS — battle-tested in production with a huge ecosystem. Auto-generated API is genuinely magical for rapid prototyping. Main friction: schema changes are code changes requiring redeploys, SQLite-only in dev mode, and v4/v5 migration is breaking. Better for backend developers than Sanity; worse DX for frontend-first teams.",
+  "alternatives": ["contentful", "sanity"],
+  "complementary": ["vercel", "railway", "neon", "supabase", "algolia", "cloudinary"],
+  "bestFor": "Self-hosted headless CMS for full data ownership — teams that want Contentful-style content management without the SaaS pricing or vendor lock-in",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

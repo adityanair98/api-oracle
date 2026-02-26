@@ -1,0 +1,98 @@
+{
+  "name": "Typeform",
+  "slug": "typeform",
+  "category": "forms",
+  "subcategory": "conversational-forms",
+  "website": "https://developer.typeform.com",
+  "description": "Typeform provides conversational, one-question-at-a-time forms with high completion rates. The Typeform API allows developers to create forms programmatically, retrieve responses, and set up webhooks for real-time form submission handling. Used for surveys, lead capture, onboarding questionnaires, and feedback collection.",
+  "useCases": [
+    {
+      "task": "Embed a conversational survey or questionnaire into an app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Retrieve form responses programmatically for analysis",
+      "fit": "perfect"
+    },
+    {
+      "task": "Trigger actions on form submission via webhook",
+      "fit": "good"
+    },
+    {
+      "task": "Create forms programmatically with the Typeform API",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create a Typeform account at typeform.com",
+      "Click your profile avatar in the top-right corner",
+      "Go to Profile \u2192 Personal tokens",
+      "Click 'Generate a new token', give it a name, and copy the token",
+      "Set TYPEFORM_API_TOKEN environment variable with the copied token"
+    ],
+    "envVarName": "TYPEFORM_API_TOKEN",
+    "codeSnippet": "const response = await fetch('https://api.typeform.com/me', {\n  headers: {\n    Authorization: `Bearer ${process.env.TYPEFORM_API_TOKEN}`,\n  },\n});\nconst data = await response.json();\nconsole.log('Typeform user:', data);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: 10 questions/form, 10 responses/month, basic logic",
+    "startingPrice": "$25/month (Basic) for unlimited responses and questions, 1 user",
+    "costPer": null,
+    "pricingUrl": "https://www.typeform.com/pricing/"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "REST API: 5 requests/second; Responses API: 1,000 items per page max",
+    "notes": "Webhooks deliver responses in near-real-time (usually <10 seconds). The Responses API uses cursor-based pagination for large result sets. Typeform rate limits are per-user, not per-form.",
+    "retryStrategy": "Implement retry on 429 responses. Typeform webhooks include a checksum header for verification \u2014 always validate before processing."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @typeform/api-client",
+    "importStatement": "import { createClient } from '@typeform/api-client';",
+    "otherLanguages": [
+      "javascript",
+      "python"
+    ]
+  },
+  "codeExamples": [
+    {
+      "title": "Retrieve form responses",
+      "language": "typescript",
+      "code": "import { createClient } from '@typeform/api-client';\n\nconst typeformClient = createClient({\n  token: process.env.TYPEFORM_API_TOKEN!,\n});\n\nconst FORM_ID = 'your-form-id';\n\ninterface TypeformResponse {\n  response_id: string;\n  submitted_at: string;\n  answers: Array<{\n    field: { id: string; type: string };\n    type: string;\n    text?: string;\n    choice?: { label: string };\n    number?: number;\n  }>;\n}\n\nasync function getFormResponses(): Promise<void> {\n  const result = await typeformClient.responses.list({\n    uid: FORM_ID,\n    pageSize: 100,\n    sort: 'submitted_at,desc',\n  });\n\n  console.log(`Total responses: ${result.total_items}`);\n\n  for (const response of result.items as TypeformResponse[]) {\n    console.log(`Response ID: ${response.response_id}`);\n    console.log(`Submitted at: ${response.submitted_at}`);\n\n    for (const answer of response.answers) {\n      const value = answer.text ?? answer.choice?.label ?? answer.number ?? 'N/A';\n      console.log(`  Field ${answer.field.id} (${answer.type}): ${value}`);\n    }\n  }\n}\n\ngetFormResponses().catch(console.error);",
+      "notes": "The @typeform/api-client wraps the REST API. Use the `pageSize` and `before` cursor parameters for paginating through large response sets. The `sort` parameter supports field,direction syntax."
+    },
+    {
+      "title": "Handle Typeform webhook submission",
+      "language": "typescript",
+      "code": "import express, { Request, Response } from 'express';\nimport crypto from 'crypto';\n\nconst app = express();\n\n// Use raw body parser to allow signature verification\napp.use(\n  '/webhooks/typeform',\n  express.raw({ type: 'application/json' })\n);\n\ninterface TypeformWebhookPayload {\n  form_response: {\n    form_id: string;\n    token: string;\n    submitted_at: string;\n    answers: Array<{\n      field: { id: string; ref: string; type: string };\n      type: string;\n      text?: string;\n      email?: string;\n      choice?: { label: string };\n    }>;\n  };\n}\n\nfunction verifyTypeformSignature(\n  rawBody: Buffer,\n  signatureHeader: string,\n  secret: string\n): boolean {\n  const hmac = crypto.createHmac('sha256', secret);\n  hmac.update(rawBody);\n  const digest = `sha256=${hmac.digest('base64')}`;\n  return crypto.timingSafeEqual(\n    Buffer.from(digest),\n    Buffer.from(signatureHeader)\n  );\n}\n\napp.post('/webhooks/typeform', (req: Request, res: Response): void => {\n  const signature = req.headers['typeform-signature'] as string;\n  const webhookSecret = process.env.TYPEFORM_WEBHOOK_SECRET!;\n\n  if (!signature || !verifyTypeformSignature(req.body as Buffer, signature, webhookSecret)) {\n    res.status(401).json({ error: 'Invalid signature' });\n    return;\n  }\n\n  // Return 200 immediately before processing\n  res.status(200).json({ received: true });\n\n  const payload = JSON.parse((req.body as Buffer).toString()) as TypeformWebhookPayload;\n  const { form_response } = payload;\n\n  console.log(`Form submission received for form: ${form_response.form_id}`);\n  console.log(`Submission token: ${form_response.token}`);\n  console.log(`Submitted at: ${form_response.submitted_at}`);\n\n  for (const answer of form_response.answers) {\n    const value = answer.text ?? answer.email ?? answer.choice?.label ?? 'N/A';\n    console.log(`  [${answer.field.ref}]: ${value}`);\n  }\n});\n\napp.listen(3000, () => console.log('Webhook server running on port 3000'));",
+      "notes": "Always return 200 immediately after signature verification to prevent Typeform from retrying. Process the payload asynchronously. The TYPEFORM_WEBHOOK_SECRET is set in the Typeform dashboard when creating the webhook. Use express.raw() (not express.json()) to preserve the raw body for HMAC verification."
+    }
+  ],
+  "gotchas": [
+    "Typeform's free plan limits responses to 10/month per form \u2014 this is a hard limit. Once exceeded, respondents see an error. For production forms with any real traffic, the free tier is insufficient.",
+    "The embedded Typeform widget loads a full JavaScript bundle (~500KB) from typeform.com servers. This significantly impacts page load performance. Use the @typeform/embed-react package with lazy loading, or consider a native form library for performance-critical pages.",
+    "Typeform webhook payloads are NOT retried indefinitely \u2014 if your endpoint returns an error, Typeform retries a limited number of times before giving up. Use a queue (like Inngest or Trigger.dev) to process webhook events asynchronously and return 200 immediately.",
+    "Logic jumps and Hidden Fields in Typeform are configured in the form builder UI, NOT in the API. You cannot programmatically add conditional logic when creating a form via API \u2014 the logic must be added in the Typeform interface after creation."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA (Business+)",
+    "statusPageUrl": "https://status.typeform.com",
+    "notes": "Globally distributed infrastructure. Webhook delivery is near-real-time but not guaranteed \u2014 implement idempotency keys for critical workflows."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Highest form completion rates in the industry due to the conversational one-question format. Strong API for retrieving responses. Main friction: the 10-response free tier is impractical for testing, the embed bundle is heavy, and the API for creating forms with logic is limited.",
+  "alternatives": [
+    "formspark"
+  ],
+  "complementary": [
+    "resend",
+    "supabase"
+  ],
+  "bestFor": "Conversational surveys and forms where completion rate is the priority \u2014 lead capture, NPS surveys, onboarding questionnaires",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

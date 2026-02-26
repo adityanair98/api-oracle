@@ -1,0 +1,92 @@
+{
+  "name": "Contentful",
+  "slug": "contentful",
+  "category": "cms",
+  "subcategory": "headless-cms",
+  "website": "https://contentful.com",
+  "description": "Contentful is an enterprise-grade headless CMS that stores structured content and delivers it via REST and GraphQL APIs. Content editors use the Contentful web app; developers fetch content in any framework. Strong for large teams needing workflow approvals, localization, and rich media management. The content model is flexible — define your own content types.",
+  "useCases": [
+    {
+      "task": "Fetch blog posts, marketing pages, or product content for a web app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build a multi-language website with locale-specific content",
+      "fit": "perfect"
+    },
+    {
+      "task": "Enable non-technical content editors to manage website content",
+      "fit": "good"
+    },
+    {
+      "task": "Integrate structured content into a mobile app",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create a Contentful account at contentful.com",
+      "Create a new Space (a Space is your content repository)",
+      "Define your Content Types (the schema for your content)",
+      "Navigate to Settings → API Keys → Add API Key",
+      "Copy the Space ID and Content Delivery API access token",
+      "For write access, generate a Content Management API token under Settings → API Keys → Content Management Tokens",
+      "Set CONTENTFUL_DELIVERY_TOKEN, CONTENTFUL_SPACE_ID, and CONTENTFUL_ENVIRONMENT_ID environment variables"
+    ],
+    "envVarName": "CONTENTFUL_DELIVERY_TOKEN",
+    "codeSnippet": "import { createClient } from 'contentful';\n\nconst client = createClient({\n  space: process.env.CONTENTFUL_SPACE_ID!,\n  environment: process.env.CONTENTFUL_ENVIRONMENT_ID ?? 'master',\n  accessToken: process.env.CONTENTFUL_DELIVERY_TOKEN!,\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free Community plan: 1 space, 25K API calls/month, 500MB assets, 2 roles, 5 users",
+    "startingPrice": "$300/month (Basic) for 25 users, 2M API calls, 5 spaces",
+    "costPer": null,
+    "pricingUrl": "https://www.contentful.com/pricing/"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "25,000 API calls/month (Community), no per-second limit documented — burst throttling at 55 requests/second on Delivery API",
+    "notes": "Content Delivery API responses are cached at Contentful's CDN globally. Cache invalidation happens on publish — unpublished content may be served from cache for up to 15 minutes.",
+    "retryStrategy": "Implement retry with exponential backoff on 429 responses. Use the GraphQL API for complex queries to reduce call count (fetch multiple content types in one request)."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact contentful contentful-management",
+    "importStatement": "import { createClient } from 'contentful';",
+    "otherLanguages": ["python", "java", "ruby", "php"]
+  },
+  "codeExamples": [
+    {
+      "title": "Fetch blog posts from Contentful",
+      "language": "typescript",
+      "code": "import { createClient, EntryCollection } from 'contentful';\n\ninterface BlogPostFields {\n  title: string;\n  slug: string;\n  body: string;\n  publishedAt: string;\n  author: {\n    fields: {\n      name: string;\n    };\n  };\n}\n\nconst client = createClient({\n  space: process.env.CONTENTFUL_SPACE_ID!,\n  environment: process.env.CONTENTFUL_ENVIRONMENT_ID ?? 'master',\n  accessToken: process.env.CONTENTFUL_DELIVERY_TOKEN!,\n});\n\nasync function getBlogPosts(limit = 10) {\n  const entries: EntryCollection<BlogPostFields> = await client.getEntries<BlogPostFields>({\n    content_type: 'blogPost',\n    order: ['-fields.publishedAt'],\n    limit,\n    include: 2, // resolve linked entries up to 2 levels deep\n  });\n\n  return entries.items.map((entry) => ({\n    id: entry.sys.id,\n    title: entry.fields.title,\n    slug: entry.fields.slug,\n    body: entry.fields.body,\n    publishedAt: entry.fields.publishedAt,\n    authorName: entry.fields.author?.fields?.name ?? 'Unknown',\n  }));\n}\n\nconst posts = await getBlogPosts(10);\nconsole.log('Blog posts:', posts);",
+      "notes": "Replace 'blogPost' with your Contentful content type ID. The `include` parameter resolves linked entries (e.g., nested author fields) up to N levels deep. Avoid setting include too high — it increases response size significantly."
+    },
+    {
+      "title": "Fetch a single entry by ID",
+      "language": "typescript",
+      "code": "import { createClient } from 'contentful';\n\ninterface PageFields {\n  title: string;\n  slug: string;\n  hero: {\n    fields: {\n      title: string;\n      file: {\n        url: string;\n        details: { size: number; image: { width: number; height: number } };\n      };\n    };\n  };\n  body: unknown; // Rich Text — use @contentful/rich-text-html-renderer to render\n}\n\nconst client = createClient({\n  space: process.env.CONTENTFUL_SPACE_ID!,\n  environment: process.env.CONTENTFUL_ENVIRONMENT_ID ?? 'master',\n  accessToken: process.env.CONTENTFUL_DELIVERY_TOKEN!,\n});\n\nasync function getPageById(entryId: string) {\n  const entry = await client.getEntry<PageFields>(entryId, {\n    include: 2,\n  });\n\n  return {\n    id: entry.sys.id,\n    title: entry.fields.title,\n    slug: entry.fields.slug,\n    heroImageUrl: entry.fields.hero?.fields?.file?.url\n      ? `https:${entry.fields.hero.fields.file.url}`\n      : null,\n    body: entry.fields.body, // pass to documentToHtmlString() for rendering\n  };\n}\n\nconst page = await getPageById('5KsDBWseXY6QegucYAoacS');\nconsole.log('Page:', page);",
+      "notes": "Contentful image URLs are protocol-relative (start with //). Prefix with https: before using them in img tags or passing to image optimization tools. The body field for Rich Text must be rendered with @contentful/rich-text-html-renderer or @contentful/rich-text-react-renderer."
+    }
+  ],
+  "gotchas": [
+    "Contentful's free plan has a hard cap of 25,000 API calls/month. A Next.js site that revalidates content frequently (ISR with low revalidation intervals) can easily exceed this. Always enable the CDN caching layer and set ISR revalidation to at least 60 seconds.",
+    "Rich Text content is stored in Contentful's own JSON format (not HTML or Markdown). To render it, you must use @contentful/rich-text-html-renderer or @contentful/rich-text-react-renderer. Trying to render the raw JSON as HTML will output [object Object].",
+    "The Content Management API (write access) and Content Delivery API (read access) use different tokens. The Management token has full write access — never expose it client-side or commit it to git. Use it server-side only.",
+    "Content models cannot be changed once they have content entries without migration scripts. Adding a new required field to an existing content type with 500 existing entries requires either a migration (run via @contentful/cli) or making the field optional."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA on paid plans",
+    "statusPageUrl": "https://www.contentstatus.com",
+    "notes": "CDN-distributed with global edge caching. Content Delivery API responses are served from Fastly CDN nodes worldwide, providing low-latency reads for end users globally."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Industry standard enterprise headless CMS with the most mature ecosystem and plugin library. Excellent content modeling, localization, and workflow features. Rich Text handling and steep pricing cliff ($0 → $300/month) are the main friction points for smaller projects.",
+  "alternatives": ["sanity", "strapi"],
+  "complementary": ["vercel", "netlify", "algolia", "cloudinary"],
+  "bestFor": "Enterprise and mid-size teams needing a robust headless CMS with content workflows, localization, and a rich editor for non-technical content managers",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

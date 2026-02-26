@@ -1,0 +1,92 @@
+{
+  "name": "Sanity",
+  "slug": "sanity",
+  "category": "cms",
+  "subcategory": "headless-cms",
+  "website": "https://www.sanity.io",
+  "description": "Sanity is a developer-first headless CMS with a real-time content API (GROQ) and a customizable React-based editor (Sanity Studio). Content is stored as portable text and JSON documents. Unlike WordPress or Contentful, the Sanity Studio is code you own and deploy, making it infinitely customizable. Strong TypeScript support with schema-to-type generation.",
+  "useCases": [
+    {
+      "task": "Build a content-driven website or blog with a custom editor",
+      "fit": "perfect"
+    },
+    {
+      "task": "Fetch structured content (blog, docs, product info) via API",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build a fully custom CMS UI for client content management",
+      "fit": "good"
+    },
+    {
+      "task": "Manage content across multiple front-end platforms from one source",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Run `npm create sanity@latest` to scaffold a new Sanity project",
+      "Log in with a Sanity account (GitHub, Google, or email)",
+      "A project is created automatically — note the Project ID printed in the terminal",
+      "Find your Project ID at sanity.io/manage under your project",
+      "For private datasets or write access, go to sanity.io/manage → API → Tokens → Add API Token",
+      "Choose token permissions (Viewer for read-only, Editor or higher for mutations)",
+      "Set SANITY_PROJECT_ID, SANITY_DATASET, and SANITY_API_TOKEN environment variables"
+    ],
+    "envVarName": "SANITY_API_TOKEN",
+    "codeSnippet": "import { createClient } from '@sanity/client';\n\nconst client = createClient({\n  projectId: process.env.SANITY_PROJECT_ID!,\n  dataset: process.env.SANITY_DATASET ?? 'production',\n  apiVersion: '2024-01-01', // use today's date or a fixed date\n  useCdn: true, // true for reads (CDN-cached), false for fresh data\n  token: process.env.SANITY_API_TOKEN, // only required for private datasets or writes\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: 2 users, 10K documents, 1M API CDN requests/month, 20GB CDN bandwidth",
+    "startingPrice": "$15/month (Growth) for 10 users, 25K documents, 10M API requests",
+    "costPer": "$1/additional user/month, $0.00001/CDN request above included",
+    "pricingUrl": "https://www.sanity.io/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "1M CDN API requests/month, 1,000 mutations/hour (write operations) on free tier",
+    "notes": "Sanity uses GROQ (Graph-Relational Object Queries) — its own query language. CDN requests are cached; non-CDN requests (mutations, fresh data) have lower limits. Use .withConfig({ useCdn: true }) for reads.",
+    "retryStrategy": "Implement retry on 429 responses. Use withConfig({ useCdn: true }) to route reads through CDN and dramatically reduce API usage."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @sanity/client",
+    "importStatement": "import { createClient } from '@sanity/client';",
+    "otherLanguages": ["javascript", "python"]
+  },
+  "codeExamples": [
+    {
+      "title": "Fetch posts with GROQ query",
+      "language": "typescript",
+      "code": "import { createClient } from '@sanity/client';\n\ninterface Post {\n  _id: string;\n  title: string;\n  slug: { current: string };\n  publishedAt: string;\n  excerpt: string;\n  author: {\n    name: string;\n    imageUrl: string | null;\n  };\n}\n\nconst client = createClient({\n  projectId: process.env.SANITY_PROJECT_ID!,\n  dataset: process.env.SANITY_DATASET ?? 'production',\n  apiVersion: '2024-01-01',\n  useCdn: true,\n});\n\nasync function getPosts(limit = 10): Promise<Post[]> {\n  const query = `\n    *[_type == \"post\" && defined(publishedAt)] | order(publishedAt desc) [0...$limit] {\n      _id,\n      title,\n      slug,\n      publishedAt,\n      excerpt,\n      author-> {\n        name,\n        \"imageUrl\": image.asset->url\n      }\n    }\n  `;\n\n  const posts = await client.fetch<Post[]>(query, { limit: limit - 1 });\n  return posts;\n}\n\nconst posts = await getPosts(10);\nconsole.log('Posts:', posts);",
+      "notes": "GROQ array slices are inclusive on both ends: [0...9] returns 10 items (indices 0 through 9). Use the `->` operator to dereference linked documents (e.g., author->). The `defined()` filter skips documents where the field is null or missing."
+    },
+    {
+      "title": "Create a document via Sanity mutation",
+      "language": "typescript",
+      "code": "import { createClient } from '@sanity/client';\n\ninterface NewPost {\n  title: string;\n  slug: string;\n  body: string;\n  authorId: string;\n}\n\nconst client = createClient({\n  projectId: process.env.SANITY_PROJECT_ID!,\n  dataset: process.env.SANITY_DATASET ?? 'production',\n  apiVersion: '2024-01-01',\n  useCdn: false, // must be false for write operations\n  token: process.env.SANITY_API_TOKEN!, // write token required\n});\n\nasync function createPost(data: NewPost) {\n  const doc = await client.create({\n    _type: 'post',\n    title: data.title,\n    slug: {\n      _type: 'slug',\n      current: data.slug,\n    },\n    body: [\n      {\n        _type: 'block',\n        _key: crypto.randomUUID(),\n        children: [\n          {\n            _type: 'span',\n            _key: crypto.randomUUID(),\n            text: data.body,\n            marks: [],\n          },\n        ],\n        markDefs: [],\n        style: 'normal',\n      },\n    ],\n    author: {\n      _type: 'reference',\n      _ref: data.authorId,\n    },\n    publishedAt: new Date().toISOString(),\n  });\n\n  console.log('Created document with ID:', doc._id);\n  return doc;\n}\n\nawait createPost({\n  title: 'Hello World',\n  slug: 'hello-world',\n  body: 'This is the first paragraph of my post.',\n  authorId: 'author-document-id-here',\n});",
+      "notes": "Write operations require useCdn: false and a valid API token with Editor permissions or higher. The body field uses Sanity's Portable Text format — an array of block objects. Each block and span requires a unique _key. Use crypto.randomUUID() or nanoid to generate keys."
+    }
+  ],
+  "gotchas": [
+    "GROQ is not GraphQL or SQL — it's Sanity's own query language. The syntax is powerful but requires learning: `*[_type == 'post' && published == true] | order(publishedAt desc) [0..9]`. Bookmark the GROQ cheat sheet; autocomplete is only available in Sanity Studio, not in your code editor.",
+    "Sanity's portable text format (for rich content) requires the @portabletext/react or @portabletext/to-html package to render. The raw format is an array of block objects — do not try to render it directly.",
+    "The Sanity Studio (your CMS editor) is a React app you deploy separately from your main website. It requires its own hosting (sanity.io provides free hosting for Studio, or you can self-host). Forgetting to redeploy the Studio after schema changes results in editors seeing a mismatch between the UI and the data.",
+    "Sanity real-time live preview requires setting up a listener with `client.listen()` — it's not automatic. The subscription returns a ReadableStream that needs to be properly closed when done to avoid memory leaks and connection buildup."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA (Growth+)",
+    "statusPageUrl": "https://status.sanity.io",
+    "notes": "Globally distributed CDN with edge caching for read queries. The content API is hosted on Sanity's managed infrastructure with automatic failover. Real-time collaboration features use WebSocket connections."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Best developer experience of any headless CMS — TypeScript schema generation, GROQ query language with type inference, real-time previews, and a fully customizable Studio. The free tier is genuinely useful for small projects. Sanity is the go-to CMS for teams using Next.js or Astro who want a modern, code-first CMS.",
+  "alternatives": ["contentful", "strapi"],
+  "complementary": ["vercel", "netlify", "algolia", "cloudinary", "resend"],
+  "bestFor": "Developer-first headless CMS with a customizable React editor, real-time collaboration, and type-safe content APIs — ideal for Next.js and Astro projects",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

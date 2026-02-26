@@ -1,0 +1,85 @@
+{
+  "name": "Formspark",
+  "slug": "formspark",
+  "category": "forms",
+  "subcategory": "form-backend",
+  "website": "https://formspark.io",
+  "description": "Formspark is a form backend service — point your HTML form action to a Formspark endpoint and submissions are collected, spam-filtered, and forwarded to your email or webhook. No server-side code required. Ideal for static sites and JAMstack apps that need form submission handling without building a backend.",
+  "useCases": [
+    {
+      "task": "Add a contact form to a static site without a backend",
+      "fit": "perfect"
+    },
+    {
+      "task": "Collect form submissions and receive email notifications",
+      "fit": "perfect"
+    },
+    {
+      "task": "Set up form-to-webhook integration for automation",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create a Formspark account at formspark.io",
+      "Click 'Create a form' in the dashboard and give it a name",
+      "Copy the Form ID shown in the dashboard (e.g., abc12345)",
+      "Use the Form ID in your form action URL: https://submit.formspark.io/f/{FORM_ID}",
+      "Set FORMSPARK_FORM_ID environment variable with the copied Form ID"
+    ],
+    "envVarName": "FORMSPARK_FORM_ID",
+    "codeSnippet": "const response = await fetch(`https://submit.formspark.io/f/${process.env.FORMSPARK_FORM_ID}`, {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    Accept: 'application/json',\n  },\n  body: JSON.stringify({\n    email: 'user@example.com',\n    message: 'Hello from my app!',\n  }),\n});\n\nif (!response.ok) {\n  throw new Error(`Formspark submission failed: ${response.status}`);\n}\n\nconsole.log('Form submitted successfully');"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: 250 submissions/month for lifetime",
+    "startingPrice": "$9/month (Solo) for 3,000 submissions/month, 5 forms, custom domain",
+    "costPer": null,
+    "pricingUrl": "https://formspark.io/#pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "250 submissions/month, no per-second rate limit documented",
+    "notes": "Formspark applies spam filtering using hCaptcha and honeypot fields. Custom spam rules available on paid plans. Email notifications sent per-submission on all plans.",
+    "retryStrategy": "Submit forms once and handle user feedback on success/error. Use the JSON API for custom error handling in JavaScript-submitted forms."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @formspark/use-formspark",
+    "importStatement": "import { useFormspark } from '@formspark/use-formspark';",
+    "otherLanguages": ["javascript"]
+  },
+  "codeExamples": [
+    {
+      "title": "Simple HTML form submission",
+      "language": "typescript",
+      "code": "import React, { FormEvent, useState } from 'react';\n\nconst FORMSPARK_FORM_ID = process.env.NEXT_PUBLIC_FORMSPARK_FORM_ID!;\n\ninterface ContactFormData {\n  name: string;\n  email: string;\n  message: string;\n}\n\nexport function ContactForm(): JSX.Element {\n  const [formData, setFormData] = useState<ContactFormData>({\n    name: '',\n    email: '',\n    message: '',\n  });\n  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');\n\n  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {\n    e.preventDefault();\n    setStatus('submitting');\n\n    try {\n      const response = await fetch(\n        `https://submit.formspark.io/f/${FORMSPARK_FORM_ID}`,\n        {\n          method: 'POST',\n          headers: {\n            'Content-Type': 'application/json',\n            Accept: 'application/json',\n          },\n          body: JSON.stringify(formData),\n        }\n      );\n\n      if (!response.ok) {\n        throw new Error(`Submission failed with status: ${response.status}`);\n      }\n\n      setStatus('success');\n      setFormData({ name: '', email: '', message: '' });\n    } catch (err) {\n      console.error('Form submission error:', err);\n      setStatus('error');\n    }\n  };\n\n  return (\n    <form onSubmit={handleSubmit}>\n      <input\n        type=\"text\"\n        placeholder=\"Your name\"\n        value={formData.name}\n        onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}\n        required\n      />\n      <input\n        type=\"email\"\n        placeholder=\"Your email\"\n        value={formData.email}\n        onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}\n        required\n      />\n      <textarea\n        placeholder=\"Your message\"\n        value={formData.message}\n        onChange={(e) => setFormData((prev) => ({ ...prev, message: e.target.value }))}\n        required\n      />\n      <button type=\"submit\" disabled={status === 'submitting'}>\n        {status === 'submitting' ? 'Sending...' : 'Send Message'}\n      </button>\n      {status === 'success' && <p>Message sent successfully!</p>}\n      {status === 'error' && <p>Something went wrong. Please try again.</p>}\n    </form>\n  );\n}",
+      "notes": "Use NEXT_PUBLIC_ prefix for the form ID in Next.js so it's available client-side. The Formspark JSON API accepts any key-value pairs — all submitted fields appear in the notification email and dashboard."
+    },
+    {
+      "title": "React hook for Formspark submission",
+      "language": "typescript",
+      "code": "import React, { FormEvent } from 'react';\nimport { useFormspark } from '@formspark/use-formspark';\n\nconst FORMSPARK_FORM_ID = process.env.NEXT_PUBLIC_FORMSPARK_FORM_ID!;\n\ninterface NewsletterFormData {\n  email: string;\n  firstName?: string;\n}\n\nexport function NewsletterSignup(): JSX.Element {\n  const [submit, submitting] = useFormspark({\n    formId: FORMSPARK_FORM_ID,\n  });\n\n  const [email, setEmail] = React.useState('');\n  const [firstName, setFirstName] = React.useState('');\n  const [done, setDone] = React.useState(false);\n\n  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {\n    e.preventDefault();\n\n    const data: NewsletterFormData = { email };\n    if (firstName) data.firstName = firstName;\n\n    await submit(data);\n    setDone(true);\n    setEmail('');\n    setFirstName('');\n  };\n\n  if (done) {\n    return <p>Thanks for subscribing!</p>;\n  }\n\n  return (\n    <form onSubmit={handleSubmit}>\n      <input\n        type=\"text\"\n        placeholder=\"First name (optional)\"\n        value={firstName}\n        onChange={(e) => setFirstName(e.target.value)}\n      />\n      <input\n        type=\"email\"\n        placeholder=\"Email address\"\n        value={email}\n        onChange={(e) => setEmail(e.target.value)}\n        required\n      />\n      {/* Honeypot field to catch bots — must remain hidden */}\n      <input type=\"text\" name=\"_honeypot\" style={{ display: 'none' }} />\n      <button type=\"submit\" disabled={submitting}>\n        {submitting ? 'Subscribing...' : 'Subscribe'}\n      </button>\n    </form>\n  );\n}",
+      "notes": "The useFormspark hook from @formspark/use-formspark handles loading state automatically. The `submitting` boolean is true while the request is in-flight. Adding a hidden `_honeypot` input field helps filter bot submissions."
+    }
+  ],
+  "gotchas": [
+    "Formspark's free tier is 250 submissions PER MONTH total across all forms. A popular contact form can exhaust this in days. Plan your pricing tier before going to production.",
+    "File upload fields are NOT supported by Formspark. If your form includes file attachments, you need to handle file uploads separately (to Cloudinary or S3) and submit only the URL via Formspark.",
+    "Formspark sends email notifications per submission — with a busy form receiving 100 submissions/day, that's 100 emails. Set up a webhook to a service like Zapier or n8n to filter and batch notifications instead."
+  ],
+  "reliability": {
+    "uptimeGuarantee": null,
+    "statusPageUrl": "https://status.formspark.io",
+    "notes": "AWS-backed infrastructure. No published SLA. Suitable for contact forms and lead capture but not for mission-critical data collection pipelines."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Best-in-class for simple form backends — minimal setup, reliable delivery, spam filtering included. The lifetime free tier (250 submissions/month) is rare and genuinely useful. File uploads and lack of SLA are the main limitations.",
+  "alternatives": ["typeform"],
+  "complementary": ["vercel", "netlify", "resend"],
+  "bestFor": "Adding form submission handling to static sites and JAMstack apps without any server-side code — contact forms, lead capture, feedback collection",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

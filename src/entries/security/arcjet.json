@@ -1,0 +1,89 @@
+{
+  "name": "Arcjet",
+  "slug": "arcjet",
+  "category": "security",
+  "subcategory": "app-security",
+  "website": "https://arcjet.com",
+  "description": "Arcjet is a developer-first security SDK for Node.js, Next.js, Bun, and Deno applications. Provides rate limiting, bot protection, email validation, attack protection (SQL injection, XSS), and shield middleware — all via a single SDK installed in your app. Unlike WAFs that sit in front of your server, Arcjet runs as middleware inside your application code.",
+  "useCases": [
+    {
+      "task": "Add rate limiting to an API endpoint without external infrastructure",
+      "fit": "perfect"
+    },
+    {
+      "task": "Protect a signup form from bot signups with email validation",
+      "fit": "perfect"
+    },
+    {
+      "task": "Block common attack patterns (SQLi, XSS) at the application layer",
+      "fit": "good"
+    },
+    {
+      "task": "Implement tiered rate limiting (free users vs paid users)",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create an Arcjet account at arcjet.com",
+      "Create a new site in the Arcjet dashboard",
+      "Copy the ARCJET_KEY from the site settings",
+      "Install the SDK: npm install @arcjet/next (or @arcjet/node for plain Node.js)",
+      "Add ARCJET_KEY to your .env file and middleware configuration"
+    ],
+    "envVarName": "ARCJET_KEY",
+    "codeSnippet": "// ARCJET_KEY=ajkey_your_key_here\n\nimport arcjet, { shield } from '@arcjet/next';\n\nconst aj = arcjet({\n  key: process.env.ARCJET_KEY!,\n  rules: [\n    // Shield detects common attacks: SQLi, XSS, path traversal\n    shield({ mode: 'LIVE' }),\n  ],\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: 10,000 requests/month, all features included",
+    "startingPrice": "$29/month (Starter) for 500,000 requests/month",
+    "costPer": "$5/million requests above included",
+    "pricingUrl": "https://arcjet.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "10,000 total requests/month (not just rate-limited requests — all traffic through Arcjet middleware counts). Each request that passes through the Arcjet SDK counts.",
+    "notes": "All requests routed through Arcjet middleware count toward the monthly limit, not just blocked ones. For high-traffic routes (e.g., public homepage), exempt them from Arcjet to conserve quota.",
+    "retryStrategy": "Arcjet returns ArcjetDecision objects with DENY/ALLOW/CHALLENGE decisions. Implement graceful degradation: if Arcjet SDK returns an error, fail open (allow the request) to avoid downtime."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @arcjet/next",
+    "importStatement": "import arcjet, { tokenBucket, shield, detectBot, validateEmail } from '@arcjet/next';",
+    "otherLanguages": ["javascript", "bun", "deno"]
+  },
+  "codeExamples": [
+    {
+      "title": "Rate limit an API route with Arcjet (Next.js)",
+      "language": "typescript",
+      "code": "import arcjet, { tokenBucket, shield } from '@arcjet/next';\nimport { NextRequest, NextResponse } from 'next/server';\n\nconst aj = arcjet({\n  key: process.env.ARCJET_KEY!,\n  characteristics: ['ip.src'],\n  rules: [\n    // Protect against common web attacks\n    shield({ mode: 'LIVE' }),\n    // Token bucket: 10 requests capacity, refills 10 per 60 seconds\n    tokenBucket({\n      mode: 'LIVE',\n      refillRate: 10,\n      interval: 60,\n      capacity: 10,\n    }),\n  ],\n});\n\nexport async function POST(req: NextRequest): Promise<NextResponse> {\n  const decision = await aj.protect(req, { requested: 1 });\n\n  if (decision.isDenied()) {\n    if (decision.reason.isRateLimit()) {\n      return NextResponse.json(\n        { error: 'Too many requests. Please try again later.' },\n        { status: 429 }\n      );\n    }\n    if (decision.reason.isShield()) {\n      return NextResponse.json(\n        { error: 'Suspicious request blocked.' },\n        { status: 403 }\n      );\n    }\n    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });\n  }\n\n  // Request is allowed — proceed with handler logic\n  const body: unknown = await req.json();\n  return NextResponse.json({ ok: true, received: body });\n}",
+      "notes": "The requested: 1 argument deducts 1 token per request. For expensive operations (e.g., AI inference), pass requested: 5 to deduct more tokens and enforce stricter limits without changing the rate limit config."
+    },
+    {
+      "title": "Bot protection and email validation on signup",
+      "language": "typescript",
+      "code": "import arcjet, { detectBot, validateEmail, shield } from '@arcjet/next';\nimport { NextRequest, NextResponse } from 'next/server';\n\nconst aj = arcjet({\n  key: process.env.ARCJET_KEY!,\n  characteristics: ['ip.src'],\n  rules: [\n    shield({ mode: 'LIVE' }),\n    // Block bots — allow search engine crawlers\n    detectBot({\n      mode: 'LIVE',\n      allow: ['CATEGORY:SEARCH_ENGINE', 'CATEGORY:MONITOR'],\n    }),\n    // Reject disposable/invalid email addresses\n    validateEmail({\n      mode: 'LIVE',\n      block: ['DISPOSABLE', 'INVALID', 'NO_MX_RECORDS'],\n    }),\n  ],\n});\n\ninterface SignupBody {\n  email: string;\n  name: string;\n}\n\nexport async function POST(req: NextRequest): Promise<NextResponse> {\n  const body = (await req.json()) as SignupBody;\n\n  const decision = await aj.protect(req, { email: body.email });\n\n  if (decision.isDenied()) {\n    if (decision.reason.isEmail()) {\n      return NextResponse.json(\n        { error: 'Invalid or disposable email address. Please use a real email.' },\n        { status: 422 }\n      );\n    }\n    if (decision.reason.isBot()) {\n      return NextResponse.json(\n        { error: 'Automated signups are not allowed.' },\n        { status: 403 }\n      );\n    }\n    return NextResponse.json({ error: 'Signup blocked.' }, { status: 403 });\n  }\n\n  // Valid human with a real email — create the account\n  return NextResponse.json({ ok: true, message: 'Account created.' });\n}",
+      "notes": "Pass email: body.email to aj.protect() so Arcjet's validateEmail rule can check the specific address in the request. The DISPOSABLE block type rejects known temporary email providers (Mailinator, 10minutemail, etc.) without your own blocklist."
+    }
+  ],
+  "gotchas": [
+    "Arcjet counts ALL requests through its middleware toward your monthly limit — not just blocked or rate-limited ones. On a public site with 100K pageviews/month, that's 100K Arcjet requests. Either exempt public-facing routes from Arcjet middleware or upgrade to a paid plan early.",
+    "Arcjet adds latency to every request it processes (typically 1-5ms for cloud analysis). For APIs with strict latency requirements (under 10ms P99), this overhead may be significant. Profile with and without Arcjet before deploying to latency-sensitive endpoints.",
+    "Arcjet's bot detection can block legitimate crawlers (Googlebot, Bingbot) if the rule is too aggressive. Use the category-specific allow list (detectBot({ allow: ['CATEGORY:SEARCH_ENGINE'] })) to whitelist known good bots."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% uptime SLA",
+    "statusPageUrl": "https://status.arcjet.com",
+    "notes": "Globally distributed edge network. Arcjet SDK includes a local fallback mode: if the Arcjet cloud is unreachable, the SDK fails open (allows requests) to prevent your app from going down due to a security service outage."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best developer experience for adding rate limiting and bot protection as code — no separate WAF configuration, no infrastructure changes, just npm install and middleware. The SDK approach means security rules are version-controlled alongside the app. Main limitation: request-based billing (not just blocked requests) can be expensive on high-traffic public routes.",
+  "alternatives": [],
+  "complementary": ["vercel", "cloudflare-workers", "supabase", "clerk"],
+  "bestFor": "Adding rate limiting, bot protection, and attack detection directly in your Node.js or Next.js application code — no WAF or reverse proxy required",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

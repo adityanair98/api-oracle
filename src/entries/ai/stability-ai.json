@@ -1,0 +1,89 @@
+{
+  "name": "Stability AI",
+  "slug": "stability-ai",
+  "category": "ai",
+  "subcategory": "image-generation",
+  "website": "https://platform.stability.ai",
+  "description": "Stability AI provides the Stable Diffusion image generation API — the leading open source image AI model. The Stability AI Platform API (api.stability.ai) provides hosted inference for Stable Diffusion, SDXL, SD3 Medium, and Stable Image services. Generate images from text prompts, edit images, remove backgrounds, and upscale images via REST API.",
+  "useCases": [
+    {
+      "task": "Generate images from text prompts using Stable Diffusion",
+      "fit": "perfect"
+    },
+    {
+      "task": "Edit existing images with inpainting or outpainting",
+      "fit": "good"
+    },
+    {
+      "task": "Remove backgrounds from product photos automatically",
+      "fit": "good"
+    },
+    {
+      "task": "Upscale low-resolution images to higher quality",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create an account at platform.stability.ai",
+      "Navigate to API Keys in your account dashboard",
+      "Click 'Create new API key'",
+      "Copy the key and set the STABILITY_API_KEY environment variable"
+    ],
+    "envVarName": "STABILITY_API_KEY",
+    "codeSnippet": "// Stability AI uses Authorization: Bearer header — no official SDK\nconst response = await fetch('https://api.stability.ai/v2beta/stable-image/generate/core', {\n  method: 'POST',\n  headers: {\n    Authorization: `Bearer ${process.env.STABILITY_API_KEY}`,\n    Accept: 'application/json',\n  },\n});"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "25 free credits on signup; credits do not refresh — purchase additional credits when exhausted",
+    "startingPrice": "Pay per use: SDXL ~$0.002/image, SD3 Medium ~$0.035/image, Stable Image Core ~$0.003/image",
+    "costPer": "SDXL 1.0: 0.2 credits/image ($0.002); SD3 Medium: 3.5 credits/image ($0.035); Stable Image Core: 0.3 credits/image ($0.003); 1000 credits = $10",
+    "pricingUrl": "https://platform.stability.ai/docs/credits-and-billing"
+  },
+  "rateLimits": {
+    "tier": "standard",
+    "limit": "150 requests per 10 seconds per API key; concurrent request limit also applies",
+    "notes": "Rate limits reset every 10 seconds. Image generation latency varies: SDXL takes 1-5 seconds; SD3 takes 5-20 seconds. Use async patterns for frontend apps.",
+    "retryStrategy": "Retry on 429 with exponential backoff. For longer-running generations (SD3), poll for results rather than expecting synchronous response."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact node-fetch",
+    "importStatement": "// No official JS SDK — use fetch with Authorization: Bearer header",
+    "otherLanguages": ["python"]
+  },
+  "codeExamples": [
+    {
+      "title": "Generate an image with Stable Diffusion XL",
+      "language": "typescript",
+      "code": "import fs from 'fs';\nimport path from 'path';\n\ninterface StabilityResponse {\n  image: string;\n  finish_reason: string;\n  seed: number;\n}\n\nasync function generateImage(prompt: string, outputPath: string): Promise<void> {\n  const formData = new FormData();\n  formData.append('prompt', prompt);\n  formData.append('output_format', 'png');\n  formData.append('width', '1024');\n  formData.append('height', '1024');\n\n  const response = await fetch(\n    'https://api.stability.ai/v2beta/stable-image/generate/core',\n    {\n      method: 'POST',\n      headers: {\n        Authorization: `Bearer ${process.env.STABILITY_API_KEY}`,\n        Accept: 'application/json',\n      },\n      body: formData,\n    }\n  );\n\n  if (!response.ok) {\n    const error = await response.json();\n    throw new Error(`Stability AI error ${response.status}: ${JSON.stringify(error)}`);\n  }\n\n  const data = (await response.json()) as StabilityResponse;\n\n  // Response contains base64-encoded image\n  const imageBuffer = Buffer.from(data.image, 'base64');\n  fs.writeFileSync(outputPath, imageBuffer);\n\n  console.log(`Image saved to ${outputPath} (seed: ${data.seed})`);\n}\n\nawait generateImage(\n  'A photorealistic red fox sitting in a snowy forest, golden hour lighting',\n  path.join(process.cwd(), 'output.png')\n);",
+      "notes": "Use Accept: 'application/json' to receive base64-encoded image in the response body. Use Accept: 'image/*' to receive raw binary data instead. The v2beta endpoint uses FormData, not JSON body."
+    },
+    {
+      "title": "Remove background from an image",
+      "language": "typescript",
+      "code": "import fs from 'fs';\n\nasync function removeBackground(\n  inputImagePath: string,\n  outputImagePath: string\n): Promise<void> {\n  const imageBuffer = fs.readFileSync(inputImagePath);\n  const imageBlob = new Blob([imageBuffer], { type: 'image/png' });\n\n  const formData = new FormData();\n  formData.append('image', imageBlob, 'input.png');\n  formData.append('output_format', 'png');\n\n  const response = await fetch(\n    'https://api.stability.ai/v2beta/stable-image/edit/remove-background',\n    {\n      method: 'POST',\n      headers: {\n        Authorization: `Bearer ${process.env.STABILITY_API_KEY}`,\n        Accept: 'application/json',\n      },\n      body: formData,\n    }\n  );\n\n  if (!response.ok) {\n    const error = await response.json();\n    throw new Error(`Background removal failed ${response.status}: ${JSON.stringify(error)}`);\n  }\n\n  const data = (await response.json()) as { image: string; finish_reason: string };\n  const outputBuffer = Buffer.from(data.image, 'base64');\n  fs.writeFileSync(outputImagePath, outputBuffer);\n\n  console.log(`Background removed. Saved to ${outputImagePath}`);\n}\n\nawait removeBackground('product.png', 'product-nobg.png');",
+      "notes": "Background removal costs 2 credits per image ($0.02). Works best on images with clear subject-background separation. Returns a PNG with transparent background — preserve the PNG format to keep transparency."
+    }
+  ],
+  "gotchas": [
+    "Stability AI credits are NOT free trial credits that refresh monthly — they are one-time credits you purchase. The 25 signup credits are enough for ~100 SDXL images or ~7 SD3 images. After that, you must buy more credits. Budget accordingly for any app with real user-generated images.",
+    "Stability AI returns images as binary data (application/octet-stream) or base64-encoded JSON depending on the endpoint and the Accept header you send. The response format also differs between REST API versions (v1 vs v2beta). Always verify the Accept header matches your parsing logic.",
+    "The Stability AI API does NOT guarantee content safety — prompts can generate inappropriate content unless you add your own content filtering. Implement prompt screening (using a moderation API) and output validation before showing generated images to users.",
+    "Stability AI API availability has been inconsistent historically. The company has had financial difficulties and has pivoted its API products multiple times. For production apps requiring high availability, consider using Replicate (which also hosts Stable Diffusion models) as a more operationally stable provider."
+  ],
+  "reliability": {
+    "uptimeGuarantee": null,
+    "statusPageUrl": "https://stability.statuspage.io",
+    "notes": "No published SLA. Historical availability has been inconsistent — the platform has experienced multi-hour outages during peak demand and during company restructuring periods. Monitor the status page and implement a fallback provider for production use."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Direct access to Stable Diffusion models including SDXL and SD3 with competitive per-image pricing. Good for image generation use cases. Loses points for inconsistent platform reliability, lack of an official Node.js SDK, region-specific response format quirks, and the company's unstable business history. Replicate offers a more reliable hosted alternative for Stable Diffusion.",
+  "alternatives": ["replicate", "openai"],
+  "complementary": ["cloudinary", "uploadthing", "openai"],
+  "bestFor": "Generating images from text prompts with Stable Diffusion models — SDXL for fast, cheap generation; SD3 for higher quality photorealistic images",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

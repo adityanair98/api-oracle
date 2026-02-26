@@ -1,0 +1,89 @@
+{
+  "name": "Checkly",
+  "slug": "checkly",
+  "category": "testing",
+  "subcategory": "api-monitoring",
+  "website": "https://checklyhq.com",
+  "description": "Checkly is a monitoring-as-code platform that runs Playwright browser checks and API checks on a schedule to verify your production app is working. Write checks as code (JavaScript/TypeScript), deploy via CLI, and get alerting when they fail. Think synthetic testing meets uptime monitoring.",
+  "useCases": [
+    {
+      "task": "Monitor production API endpoints with scheduled health checks",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run Playwright E2E tests against production on a schedule",
+      "fit": "perfect"
+    },
+    {
+      "task": "Get alerted when a critical user journey breaks in production",
+      "fit": "good"
+    },
+    {
+      "task": "Verify third-party API integrations are still working",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create a Checkly account at checklyhq.com",
+      "Navigate to User Settings in the top-right menu",
+      "Click on API Keys and then Create API Key",
+      "Copy the generated API key",
+      "Run npx checkly login or set CHECKLY_API_KEY and CHECKLY_ACCOUNT_ID as environment variables"
+    ],
+    "envVarName": "CHECKLY_API_KEY",
+    "codeSnippet": "// CHECKLY_API_KEY=your_api_key\n// CHECKLY_ACCOUNT_ID=your_account_id\n\n// Login via CLI (stores credentials locally)\n// npx checkly login\n\n// Or set env vars for CI environments\nimport { ApiCheck } from '@checkly/cli/constructs';\n\nnew ApiCheck('homepage-health', {\n  name: 'Homepage health check',\n  request: {\n    url: 'https://api.example.com/health',\n    method: 'GET',\n    assertions: [\n      { source: 'STATUS_CODE', comparison: 'EQUALS', target: '200' },\n    ],\n  },\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: 10,000 check runs/month, 2 team members, 5 minute check interval",
+    "startingPrice": "$20/month (Developer) for 50,000 check runs/month, 1 minute interval, private locations",
+    "costPer": null,
+    "pricingUrl": "https://www.checklyhq.com/pricing/"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "Check frequency minimum: 5 minutes (free), 1 minute (paid). Maximum check execution: 30 seconds for API checks, 4 minutes for browser checks.",
+    "notes": "Check run credits roll over within the month. Browser checks (Playwright) consume 2x check run credits vs API checks. Alerting is real-time with no delay.",
+    "retryStrategy": "Set check.retryStrategy to LINEAR or EXPONENTIAL in check config to handle transient failures. Configure alerting thresholds (e.g., alert after 2 consecutive failures)."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @checkly/cli",
+    "importStatement": "import { ApiCheck, BrowserCheck, CheckGroup } from '@checkly/cli/constructs';",
+    "otherLanguages": ["javascript"]
+  },
+  "codeExamples": [
+    {
+      "title": "Define an API health check with Checkly CLI",
+      "language": "typescript",
+      "code": "import { ApiCheck, AssertionBuilder, Frequency } from '@checkly/cli/constructs';\n\nnew ApiCheck('orders-api-health', {\n  name: 'Orders API — health endpoint',\n  activated: true,\n  muted: false,\n  frequency: Frequency.EVERY_5M,\n  locations: ['us-east-1', 'eu-west-1'],\n  tags: ['api', 'production'],\n  request: {\n    url: 'https://api.example.com/v1/health',\n    method: 'GET',\n    followRedirects: true,\n    timeout: 10_000,\n    assertions: [\n      AssertionBuilder.statusCode().equals(200),\n      AssertionBuilder.responseTime().lessThan(2000),\n      AssertionBuilder.jsonBody('$.status').equals('ok'),\n    ],\n  },\n  retryStrategy: {\n    type: 'LINEAR',\n    baseBackoffSeconds: 60,\n    maxRetries: 2,\n    maxDurationSeconds: 600,\n  },\n  alertChannels: [],\n});",
+      "notes": "Use AssertionBuilder for type-safe assertion definitions. Deploy with: npx checkly deploy. The check runs from all specified AWS regions simultaneously, so you detect region-specific outages."
+    },
+    {
+      "title": "Define a Playwright browser check",
+      "language": "typescript",
+      "code": "import { BrowserCheck, Frequency } from '@checkly/cli/constructs';\nimport * as path from 'path';\n\nnew BrowserCheck('checkout-flow', {\n  name: 'Checkout flow — add to cart and proceed',\n  activated: true,\n  frequency: Frequency.EVERY_10M,\n  locations: ['us-east-1', 'eu-central-1'],\n  tags: ['browser', 'critical-path'],\n  code: {\n    entrypoint: path.join(__dirname, 'checkout.spec.ts'),\n  },\n  retryStrategy: {\n    type: 'EXPONENTIAL',\n    baseBackoffSeconds: 30,\n    maxRetries: 2,\n    maxDurationSeconds: 300,\n  },\n});\n\n// In checkout.spec.ts (co-located file):\n// import { test, expect } from '@playwright/test';\n// test('add to cart and proceed to checkout', async ({ page }) => {\n//   await page.goto('https://shop.example.com');\n//   await page.getByRole('button', { name: 'Add to cart' }).first().click();\n//   await page.getByRole('link', { name: 'Checkout' }).click();\n//   await expect(page).toHaveURL(/checkout/);\n// });",
+      "notes": "Browser checks reference a separate Playwright spec file via entrypoint. The spec file must live alongside the check definition. Each browser check run consumes 2x credits on the free tier. Set frequency conservatively (every 10 minutes) for credit-heavy browser checks."
+    }
+  ],
+  "gotchas": [
+    "Checkly browser checks (Playwright) use their own isolated version of Playwright, not the version installed in your project. Playwright API changes between versions can cause checks written for a newer Playwright version to fail on Checkly if they haven't updated yet. Pin your Playwright syntax to a common, stable API.",
+    "Check run credits on the free tier (10,000/month) sound like a lot, but a 5-minute interval check running 24/7 consumes 12×24×30 = 8,640 credits/month. Two such checks nearly exhaust the free tier. Plan check frequency carefully.",
+    "Checkly runs from global check locations (AWS regions). If your API requires IP allowlisting, you need to allowlist all Checkly IP addresses — which change when new regions are added. Use Checkly Private Locations instead for self-hosted environments."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA (paid plans)",
+    "statusPageUrl": "https://status.checklyhq.com",
+    "notes": "AWS-hosted multi-region infrastructure. Check results are stored independently of the monitored service, ensuring alerting continues even during partial outages."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best monitoring-as-code platform for teams that want Playwright-level testing in production on a schedule. The Checkly CLI is excellent — checks defined as code means they're version-controlled and reviewable. Generous free tier for small projects. Main limitation: browser check credit consumption and Playwright version lag.",
+  "alternatives": ["browserstack"],
+  "complementary": ["vercel", "fly-io", "sentry"],
+  "bestFor": "Synthetic monitoring of production APIs and user journeys — run Playwright checks on a schedule and get alerted the moment a critical flow breaks",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

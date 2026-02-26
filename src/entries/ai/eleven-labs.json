@@ -1,0 +1,90 @@
+{
+  "name": "ElevenLabs",
+  "slug": "eleven-labs",
+  "category": "ai",
+  "subcategory": "voice-synthesis",
+  "website": "https://elevenlabs.io",
+  "description": "ElevenLabs provides AI voice generation with the most realistic text-to-speech available. Features include 3,000+ pre-made voices, voice cloning from audio samples, real-time voice streaming, and speech-to-speech (voice conversion). Used for audiobooks, video narration, accessibility, and conversational AI applications.",
+  "useCases": [
+    {
+      "task": "Generate realistic AI voiceover from text for video or audio content",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add text-to-speech to an app with natural-sounding voices",
+      "fit": "perfect"
+    },
+    {
+      "task": "Clone a voice from audio samples for consistent narration",
+      "fit": "good"
+    },
+    {
+      "task": "Build a real-time conversational AI with voice output",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create an ElevenLabs account at elevenlabs.io",
+      "Click your profile avatar in the top right",
+      "Go to Profile + API Key",
+      "Copy the API key shown",
+      "Set the ELEVENLABS_API_KEY environment variable"
+    ],
+    "envVarName": "ELEVENLABS_API_KEY",
+    "codeSnippet": "import { ElevenLabsClient } from 'elevenlabs';\n\nconst client = new ElevenLabsClient({\n  apiKey: process.env.ELEVENLABS_API_KEY,\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: 10,000 characters/month (~7 minutes of audio), 3 custom voices, non-commercial use only",
+    "startingPrice": "$5/month (Starter) for 30,000 characters/month with commercial use included",
+    "costPer": "Starter: $5/month for 30K chars; Creator: $22/month for 100K chars; Pro: $99/month for 500K chars",
+    "pricingUrl": "https://elevenlabs.io/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "Free: 10,000 characters/month; API concurrency: 2 concurrent streams (free), 5 (Starter), 10 (Creator); character limits reset monthly",
+    "notes": "Character limits are strict hard caps — the API returns an error when the monthly quota is exhausted. Generation latency depends on voice model: Eleven Multilingual v2 takes 2-5s; Eleven Flash v2.5 (optimized for real-time) takes under 0.5s to first byte. Use streaming for real-time applications.",
+    "retryStrategy": "Retry on 429 with exponential backoff. For real-time streaming, implement reconnect logic on stream interruption with an increasing delay (start at 1s, cap at 30s)."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact elevenlabs",
+    "importStatement": "import { ElevenLabsClient } from 'elevenlabs';",
+    "otherLanguages": ["python"]
+  },
+  "codeExamples": [
+    {
+      "title": "Generate speech from text and save to file",
+      "language": "typescript",
+      "code": "import { ElevenLabsClient } from 'elevenlabs';\nimport fs from 'fs';\nimport path from 'path';\n\nconst client = new ElevenLabsClient({\n  apiKey: process.env.ELEVENLABS_API_KEY,\n});\n\nasync function textToSpeech(\n  text: string,\n  voiceId: string,\n  outputPath: string\n): Promise<void> {\n  const audio = await client.textToSpeech.convert(voiceId, {\n    text,\n    model_id: 'eleven_multilingual_v2',\n    voice_settings: {\n      stability: 0.5,\n      similarity_boost: 0.75,\n    },\n    output_format: 'mp3_44100_128',\n  });\n\n  // audio is a ReadableStream — collect all chunks into a Buffer\n  const chunks: Buffer[] = [];\n  for await (const chunk of audio) {\n    chunks.push(Buffer.from(chunk));\n  }\n  const audioBuffer = Buffer.concat(chunks);\n\n  fs.writeFileSync(outputPath, audioBuffer);\n  console.log(`Audio saved to ${outputPath} (${audioBuffer.length} bytes)`);\n}\n\n// 'Rachel' is a popular pre-made ElevenLabs voice\nconst RACHEL_VOICE_ID = '21m00Tcm4TlvDq8ikWAM';\n\nawait textToSpeech(\n  'Hello! This is a test of the ElevenLabs text-to-speech API.',\n  RACHEL_VOICE_ID,\n  path.join(process.cwd(), 'output.mp3')\n);",
+      "notes": "The convert() method returns a ReadableStream. Collect chunks in a loop before writing to disk. Use eleven_flash_v2_5 instead of eleven_multilingual_v2 for lower-latency applications — it generates audio ~10x faster with slightly lower quality."
+    },
+    {
+      "title": "Stream audio in real-time for low-latency playback",
+      "language": "typescript",
+      "code": "import { ElevenLabsClient } from 'elevenlabs';\nimport { Writable } from 'stream';\n\nconst client = new ElevenLabsClient({\n  apiKey: process.env.ELEVENLABS_API_KEY,\n});\n\nasync function streamSpeechToOutput(\n  text: string,\n  voiceId: string,\n  outputStream: Writable\n): Promise<void> {\n  const audioStream = await client.textToSpeech.stream(voiceId, {\n    text,\n    model_id: 'eleven_flash_v2_5', // Use Flash model for lowest latency\n    voice_settings: {\n      stability: 0.5,\n      similarity_boost: 0.75,\n    },\n    output_format: 'pcm_16000', // PCM for real-time audio pipelines\n  });\n\n  return new Promise<void>((resolve, reject) => {\n    audioStream.on('data', (chunk: Buffer) => {\n      outputStream.write(chunk);\n    });\n\n    audioStream.on('end', () => {\n      outputStream.end();\n      resolve();\n    });\n\n    audioStream.on('error', (err: Error) => {\n      reject(err);\n    });\n  });\n}\n\n// Example: stream to stdout (pipe to a media player like ffplay)\nconst RACHEL_VOICE_ID = '21m00Tcm4TlvDq8ikWAM';\n\nawait streamSpeechToOutput(\n  'This audio streams in real-time with sub-500ms latency to first byte.',\n  RACHEL_VOICE_ID,\n  process.stdout\n);",
+      "notes": "The Flash v2.5 model achieves under 500ms latency to first audio byte — suitable for conversational AI. Use pcm_16000 format when piping to an audio pipeline. For browser playback, use mp3_44100_128 and create a MediaSource object to append chunks as they arrive."
+    }
+  ],
+  "gotchas": [
+    "Free plan audio is explicitly marked as non-commercial in ElevenLabs' terms of service — you cannot use free tier generated audio in commercial products. Any app that generates revenue (including ad-supported free apps) requires a paid plan starting at $5/month.",
+    "Voice cloning requires a minimum of 1 minute of clean audio samples. Background noise, music, or multiple speakers significantly degrades clone quality. Record in a quiet environment with a good microphone, and avoid audio that has been compressed with heavy codecs (use WAV or high-bitrate MP3).",
+    "ElevenLabs returns audio as a binary stream (ArrayBuffer chunks). In Node.js, collect chunks into a Buffer array and concatenate before writing to a file. In browsers, create a Blob from received chunks and generate a Blob URL for playback. The default output format is MP3; specify output_format explicitly to get PCM or WebM for lower-latency streaming scenarios.",
+    "Character limits count ALL characters in the text string, including spaces, punctuation, and SSML markup tags. A 5,000-character essay consumes 5,000 of your monthly quota. SSML tags like <break time='1s'/> count toward the limit too. Plan quota usage carefully if your app generates long-form content."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime (Business plan and above)",
+    "statusPageUrl": "https://status.elevenlabs.io",
+    "notes": "Globally distributed infrastructure with generally high availability. Occasional latency spikes during peak hours. The streaming API is production-ready. Business plan includes a 99.9% uptime SLA with dedicated support."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Best-in-class AI voice quality — ElevenLabs voices are noticeably more natural than competitors including Amazon Polly and Google Text-to-Speech. The Flash v2.5 streaming model is particularly impressive for real-time conversational applications. 3,000+ pre-made voices and instant voice cloning make it versatile. Main friction: non-commercial restriction on free tier and strict character caps, but the voice quality justifies the cost for any serious audio application.",
+  "alternatives": ["resemble-ai"],
+  "complementary": ["openai", "anthropic", "cloudinary", "mux"],
+  "bestFor": "AI-generated voice narration and text-to-speech with the most natural-sounding output — audiobooks, video narration, accessibility features, and real-time conversational AI",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

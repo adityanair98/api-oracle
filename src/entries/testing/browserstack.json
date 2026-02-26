@@ -1,0 +1,86 @@
+{
+  "name": "BrowserStack",
+  "slug": "browserstack",
+  "category": "testing",
+  "subcategory": "cross-browser-testing",
+  "website": "https://www.browserstack.com",
+  "description": "BrowserStack provides real device and browser cloud for automated and manual testing. Run Selenium, Playwright, Cypress, and Appium tests on 3,000+ real browsers and mobile devices without maintaining your own device farm. Integrates with CI/CD pipelines (GitHub Actions, Jenkins, CircleCI).",
+  "useCases": [
+    {
+      "task": "Run automated Playwright or Cypress tests on real browsers in CI",
+      "fit": "perfect"
+    },
+    {
+      "task": "Test a web app on mobile devices (iOS, Android) without owning devices",
+      "fit": "perfect"
+    },
+    {
+      "task": "Debug browser-specific layout issues with live interactive sessions",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create a BrowserStack account at browserstack.com",
+      "Navigate to the Automate product dashboard",
+      "Go to Settings in the top-right menu",
+      "Copy your Username and Access Key from the Automate section",
+      "Set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY as environment variables"
+    ],
+    "envVarName": "BROWSERSTACK_USERNAME",
+    "codeSnippet": "// Set credentials as environment variables\n// BROWSERSTACK_USERNAME=your_username\n// BROWSERSTACK_ACCESS_KEY=your_access_key\n\nimport { chromium } from 'playwright';\n\nconst browser = await chromium.connect(\n  `wss://cdp.browserstack.com/playwright?caps=${encodeURIComponent(JSON.stringify({\n    browser: 'chrome',\n    browser_version: 'latest',\n    os: 'Windows',\n    os_version: '11',\n    'browserstack.username': process.env.BROWSERSTACK_USERNAME,\n    'browserstack.accessKey': process.env.BROWSERSTACK_ACCESS_KEY,\n  }))}`\n);"
+  },
+  "pricing": {
+    "model": "paid",
+    "freeTier": "Free trial: 100 minutes of Automate and 100 minutes of App Automate",
+    "startingPrice": "$38/month (Automate Starter) for 1 parallel test, 100 minutes/month",
+    "costPer": null,
+    "pricingUrl": "https://www.browserstack.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "Starter plan",
+    "limit": "1 parallel session (Starter), up to 1,000 parallel sessions (Enterprise). Session length max: 3 hours (Automate)",
+    "notes": "Session queues when all parallels are in use. Idle sessions timeout after 90 seconds of no commands. Tests must send keep-alive commands during long operations.",
+    "retryStrategy": "Implement test-level retry for flaky network issues. BrowserStack sessions auto-terminate after 90s idle to avoid consuming minutes."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @playwright/test browserstacklocal",
+    "importStatement": "import { chromium } from 'playwright';",
+    "otherLanguages": ["python", "java", "ruby", "php"]
+  },
+  "codeExamples": [
+    {
+      "title": "Run Playwright test on BrowserStack",
+      "language": "typescript",
+      "code": "import { test, expect } from '@playwright/test';\nimport { chromium } from 'playwright';\n\ntest('homepage loads on BrowserStack Chrome', async () => {\n  const caps = {\n    browser: 'chrome',\n    browser_version: 'latest',\n    os: 'Windows',\n    os_version: '11',\n    name: 'Homepage smoke test',\n    build: `CI build ${process.env.GITHUB_RUN_NUMBER ?? 'local'}`,\n    'browserstack.username': process.env.BROWSERSTACK_USERNAME!,\n    'browserstack.accessKey': process.env.BROWSERSTACK_ACCESS_KEY!,\n  };\n\n  const browser = await chromium.connect(\n    `wss://cdp.browserstack.com/playwright?caps=${encodeURIComponent(JSON.stringify(caps))}`\n  );\n\n  const page = await browser.newPage();\n  await page.goto('https://example.com');\n\n  await expect(page).toHaveTitle(/Example Domain/);\n  await browser.close();\n});",
+      "notes": "Pass build and name caps to group test results in the BrowserStack Automate dashboard. The GITHUB_RUN_NUMBER env var ties results to a specific CI run. Always close the browser to release the parallel session immediately."
+    },
+    {
+      "title": "Configure BrowserStack in playwright.config.ts",
+      "language": "typescript",
+      "code": "import { defineConfig, devices } from '@playwright/test';\n\nexport default defineConfig({\n  testDir: './tests',\n  timeout: 60_000,\n  use: {\n    // BrowserStack Playwright CDPendpoint\n    connectOptions: {\n      wsEndpoint: `wss://cdp.browserstack.com/playwright?caps=${encodeURIComponent(\n        JSON.stringify({\n          browser: 'chrome',\n          browser_version: 'latest',\n          os: 'OS X',\n          os_version: 'Sonoma',\n          'browserstack.username': process.env.BROWSERSTACK_USERNAME,\n          'browserstack.accessKey': process.env.BROWSERSTACK_ACCESS_KEY,\n          build: process.env.GITHUB_SHA ?? 'local',\n          project: 'my-app',\n        })\n      )}`,\n    },\n  },\n  projects: [\n    {\n      name: 'chrome-windows',\n      use: { ...devices['Desktop Chrome'] },\n    },\n    {\n      name: 'safari-mac',\n      use: { ...devices['Desktop Safari'] },\n    },\n  ],\n});",
+      "notes": "Centralise the BrowserStack connection in playwright.config.ts so individual test files stay browser-agnostic. Use process.env.GITHUB_SHA as the build identifier to correlate results with commits in the BrowserStack dashboard."
+    }
+  ],
+  "gotchas": [
+    "BrowserStack sessions have a hard 90-second idle timeout. If your test has a page.waitForNavigation() or sleep that takes over 90 seconds without sending any WebDriver command, the session is killed and your test reports a 'Session not found' error. Send intermediate commands or reduce idle time.",
+    "Local testing (testing localhost or internal staging URLs) requires the BrowserStackLocal binary running as a tunnel daemon. The binary must be started before the test and stopped after. Forgetting to start the tunnel is one of the most common CI failures.",
+    "BrowserStack test minutes are consumed even for failed tests. A flaky test suite that retries 3x will consume 3x the minutes. Optimize your test suite to reduce reruns, and use BrowserStack's test reporting to identify flaky tests.",
+    "The free trial limits (100 minutes) are consumed quickly — a typical Playwright test suite takes 2-5 minutes per test. 100 minutes covers 20-50 tests total. Plan your budget before converting to a paid plan."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA",
+    "statusPageUrl": "https://status.browserstack.com",
+    "notes": "Global device cloud infrastructure with redundant device pools. BrowserStack maintains physical devices across multiple data centers to ensure availability."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Industry standard for cross-browser and cross-device testing. 3,000+ real devices is genuinely useful — no other service comes close for mobile device coverage. Playwright and Cypress integrations are well-maintained. Main friction: expensive at scale, and session timeouts require careful test design.",
+  "alternatives": ["checkly"],
+  "complementary": ["vercel", "netlify"],
+  "bestFor": "Running automated end-to-end tests on real browsers and mobile devices across your CI/CD pipeline without maintaining a device farm",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

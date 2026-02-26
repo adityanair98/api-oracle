@@ -1,0 +1,90 @@
+{
+  "name": "Snyk",
+  "slug": "snyk",
+  "category": "security",
+  "subcategory": "vulnerability-scanning",
+  "website": "https://snyk.io",
+  "description": "Snyk is a developer security platform that scans code, open source dependencies, container images, and infrastructure-as-code for vulnerabilities. Integrates with GitHub, GitLab, CI/CD pipelines, and IDEs. The Snyk API allows automating vulnerability scans and reporting programmatically. Used by security-conscious teams to catch vulnerabilities before they reach production.",
+  "useCases": [
+    {
+      "task": "Scan npm dependencies for known vulnerabilities in CI/CD",
+      "fit": "perfect"
+    },
+    {
+      "task": "Get automated pull request checks for new dependency vulnerabilities",
+      "fit": "perfect"
+    },
+    {
+      "task": "Audit a project's dependencies for security issues",
+      "fit": "good"
+    },
+    {
+      "task": "Monitor a production deployment for newly discovered vulnerabilities",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create a Snyk account at snyk.io",
+      "Navigate to Account Settings (top-right avatar menu)",
+      "Scroll to Auth Token and click to reveal your token",
+      "Copy the token",
+      "Install the CLI globally: npm install -g snyk",
+      "Authenticate the CLI: snyk auth (opens browser) or set SNYK_TOKEN env var directly"
+    ],
+    "envVarName": "SNYK_TOKEN",
+    "codeSnippet": "// SNYK_TOKEN=your_snyk_token\n\n// Test dependencies for vulnerabilities (CLI)\n// SNYK_TOKEN=$SNYK_TOKEN snyk test --json\n\n// In CI, fail the build on high-severity issues\n// snyk test --severity-threshold=high\n\n// Monitor a project (uploads snapshot for ongoing monitoring)\n// snyk monitor --project-name=my-app"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: 200 open source tests/month, unlimited projects, IDE integration, 1 contributor",
+    "startingPrice": "$25/contributor/month (Team) for unlimited tests, PR checks, license compliance",
+    "costPer": null,
+    "pricingUrl": "https://snyk.io/plans/"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "200 open source test runs/month (free). API: rate limits not publicly documented but throttling occurs for bulk operations.",
+    "notes": "CLI test runs against the Snyk API count toward monthly test limits. CI/CD integration should be configured to test only on meaningful events (push to main, PR creation) rather than every commit to conserve test quota.",
+    "retryStrategy": "Use --json flag with snyk test for structured output. Implement retry for API timeout errors in CI scripts."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact snyk",
+    "importStatement": "// Primary interface is CLI: snyk test, snyk monitor. REST API available for reporting.",
+    "otherLanguages": ["python", "java", "go", "ruby"]
+  },
+  "codeExamples": [
+    {
+      "title": "Add Snyk to a CI/CD pipeline (GitHub Actions)",
+      "language": "typescript",
+      "code": "// .github/workflows/security.yml\n// name: Security scan\n// on:\n//   push:\n//     branches: [main]\n//   pull_request:\n//     branches: [main]\n// jobs:\n//   snyk:\n//     runs-on: ubuntu-latest\n//     steps:\n//       - uses: actions/checkout@v4\n//       - uses: actions/setup-node@v4\n//         with:\n//           node-version: '20'\n//       - run: npm ci\n//       - uses: snyk/actions/node@master\n//         env:\n//           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}\n//         with:\n//           args: --severity-threshold=high --json-file-output=snyk-results.json\n//       - uses: actions/upload-artifact@v4\n//         if: always()\n//         with:\n//           name: snyk-results\n//           path: snyk-results.json\n\n// Parse Snyk JSON output in TypeScript\nimport { execSync } from 'child_process';\n\ninterface SnykVulnerability {\n  id: string;\n  title: string;\n  severity: 'critical' | 'high' | 'medium' | 'low';\n  packageName: string;\n  version: string;\n  fixedIn: string[];\n}\n\ninterface SnykResult {\n  ok: boolean;\n  vulnerabilities: SnykVulnerability[];\n  dependencyCount: number;\n}\n\nfunction runSnykTest(projectPath: string): SnykResult {\n  const output = execSync(`snyk test --json`, {\n    cwd: projectPath,\n    env: { ...process.env, SNYK_TOKEN: process.env.SNYK_TOKEN },\n  }).toString();\n  return JSON.parse(output) as SnykResult;\n}",
+      "notes": "Use snyk/actions/node@master in GitHub Actions for the simplest integration. The --json-file-output flag writes results even when vulnerabilities are found (snyk test exits with code 1 on findings, which would otherwise fail the step before output is written)."
+    },
+    {
+      "title": "Run Snyk vulnerability test programmatically",
+      "language": "typescript",
+      "code": "import { execSync, ExecSyncOptionsWithStringEncoding } from 'child_process';\n\ninterface SnykVuln {\n  id: string;\n  title: string;\n  severity: string;\n  packageName: string;\n  version: string;\n  fixedIn: string[];\n  isUpgradable: boolean;\n  isPatchable: boolean;\n}\n\ninterface SnykReport {\n  ok: boolean;\n  vulnerabilities: SnykVuln[];\n  dependencyCount: number;\n  summary: string;\n}\n\nfunction auditDependencies(cwd: string): SnykReport {\n  const opts: ExecSyncOptionsWithStringEncoding = {\n    cwd,\n    encoding: 'utf8',\n    env: { ...process.env },\n    // snyk test exits 1 on findings — don't throw, capture output\n    stdio: ['pipe', 'pipe', 'pipe'],\n  };\n\n  let raw: string;\n  try {\n    raw = execSync('snyk test --json', opts);\n  } catch (err: unknown) {\n    // Exit code 1 means vulnerabilities found — stdout still has JSON\n    const execError = err as { stdout?: string };\n    raw = execError.stdout ?? '{}';\n  }\n\n  const report = JSON.parse(raw) as SnykReport;\n\n  const highs = report.vulnerabilities.filter(\n    (v) => v.severity === 'high' || v.severity === 'critical'\n  );\n\n  if (highs.length > 0) {\n    console.error(`Found ${highs.length} high/critical vulnerabilities:`);\n    for (const v of highs) {\n      console.error(`  [${v.severity.toUpperCase()}] ${v.title} in ${v.packageName}@${v.version}`);\n    }\n  }\n\n  return report;\n}",
+      "notes": "snyk test exits with code 1 when vulnerabilities are found, so execSync throws. Capture stdout from the thrown error — the JSON output is still present. Always check the ok field on the parsed result, not just the exit code."
+    }
+  ],
+  "gotchas": [
+    "Snyk tests count against your monthly limit EVERY time they run. A CI/CD pipeline that runs on every commit to every branch can exhaust 200 free tests in days on an active team. Set CI to test only on PRs or pushes to protected branches.",
+    "Snyk fix (auto-fixing vulnerabilities) can break your app by upgrading transitive dependencies to versions that introduce breaking API changes. Always review Snyk's suggested fixes in a test environment before applying, especially major version upgrades.",
+    "Snyk's severity ratings (Critical, High, Medium, Low) are based on CVSS scores but may differ from the NVD rating. A 'High' vulnerability in Snyk might be exploitable only under specific conditions not applicable to your code path. Review the vulnerability details rather than acting on severity alone."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA (Business+)",
+    "statusPageUrl": "https://status.snyk.io",
+    "notes": "AWS-hosted with global CDN. Vulnerability database is continuously updated as new CVEs are published. CLI operates in offline mode for scanning but requires connectivity to report results."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Industry standard for dependency vulnerability scanning with the best developer integration (IDE plugins, PR checks, auto-fix PRs). The free tier (200 tests/month) is sufficient for small projects. Main friction: test quota consumption in CI/CD, and automated fix PRs can introduce breaking changes.",
+  "alternatives": [],
+  "complementary": ["vercel", "fly-io", "railway"],
+  "bestFor": "Automated dependency vulnerability scanning integrated into your development workflow — CI checks, IDE warnings, and automated fix PRs for known security issues",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

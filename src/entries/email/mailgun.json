@@ -1,0 +1,91 @@
+{
+  "name": "Mailgun",
+  "slug": "mailgun",
+  "category": "email",
+  "subcategory": "transactional-email",
+  "website": "https://www.mailgun.com",
+  "description": "Mailgun (by Sinch) is a transactional email API with advanced deliverability features, email validation, and parsing capabilities. Used extensively by SaaS companies for transactional and notification emails. Provides detailed delivery analytics, A/B testing for email, email routing, and inbound email parsing — receive and process incoming emails via webhook.",
+  "useCases": [
+    {
+      "task": "Send transactional emails with high deliverability",
+      "fit": "perfect"
+    },
+    {
+      "task": "Parse and process incoming emails via webhook",
+      "fit": "perfect"
+    },
+    {
+      "task": "Validate email addresses before adding to a list",
+      "fit": "good"
+    },
+    {
+      "task": "Send bulk notification emails with delivery tracking",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create a Mailgun account at mailgun.com",
+      "Go to Sending > Domains and add your sending domain",
+      "Complete DNS verification by adding the provided MX, TXT, and CNAME records",
+      "Go to Settings > API Keys",
+      "Click 'Add new key' to create a Private API key",
+      "Set MAILGUN_API_KEY and MAILGUN_DOMAIN environment variables"
+    ],
+    "envVarName": "MAILGUN_API_KEY",
+    "codeSnippet": "import Mailgun from 'mailgun.js';\nimport FormData from 'form-data';\n\nconst mailgun = new Mailgun(FormData);\nconst client = mailgun.client({\n  username: 'api',\n  key: process.env.MAILGUN_API_KEY ?? '',\n  // EU accounts: url: 'https://api.eu.mailgun.net'\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free trial: 100 emails/day for 3 months; then Flex plan with 1,000 free emails/month ongoing",
+    "startingPrice": "$15/month (Foundation) for 50,000 emails/month with email validation included",
+    "costPer": "Flex plan: first 1,000 emails/month free, then $0.80/1,000 emails. Foundation: $15/month flat for 50K emails.",
+    "pricingUrl": "https://www.mailgun.com/pricing/"
+  },
+  "rateLimits": {
+    "tier": "Flex plan",
+    "limit": "100 emails/hour on Flex plan (free). No hourly rate limit on paid Foundation and Scale plans. API request rate limit: up to 5,000 requests/second on Enterprise.",
+    "notes": "The 100 emails/hour limit on the Flex plan affects burst sending — drip campaigns or automated sequences can hit this limit. Batch email sends are queued and processed at the allowed rate. Paid plans remove the hourly cap.",
+    "retryStrategy": "Implement retry on 5xx errors with exponential backoff. Use Mailgun webhooks for delivery failure events rather than polling the API for send status."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact mailgun.js form-data",
+    "importStatement": "import Mailgun from 'mailgun.js';\nimport FormData from 'form-data';",
+    "otherLanguages": ["python", "ruby", "java", "php"]
+  },
+  "codeExamples": [
+    {
+      "title": "Send a transactional email with template variables",
+      "language": "typescript",
+      "code": "import Mailgun from 'mailgun.js';\nimport FormData from 'form-data';\n\nconst mailgun = new Mailgun(FormData);\nconst client = mailgun.client({\n  username: 'api',\n  key: process.env.MAILGUN_API_KEY ?? '',\n});\n\nconst DOMAIN = process.env.MAILGUN_DOMAIN ?? '';\n\ninterface SendEmailOptions {\n  to: string;\n  subject: string;\n  templateName: string;\n  variables: Record<string, string>;\n}\n\nasync function sendTransactionalEmail(options: SendEmailOptions): Promise<string> {\n  const result = await client.messages.create(DOMAIN, {\n    from: `My App <noreply@${DOMAIN}>`,\n    to: [options.to],\n    subject: options.subject,\n    template: options.templateName,\n    'h:X-Mailgun-Variables': JSON.stringify(options.variables),\n  });\n\n  console.log('Message queued:', result.id);\n  return result.id;\n}\n\n// Send a password reset email using a Mailgun template\nconst messageId = await sendTransactionalEmail({\n  to: 'user@example.com',\n  subject: 'Reset your password',\n  templateName: 'password-reset',\n  variables: {\n    name: 'Alice',\n    reset_link: 'https://myapp.com/reset?token=abc123',\n    expiry_hours: '24',\n  },\n});",
+      "notes": "Templates must be created in the Mailgun dashboard before use. Pass template variables as a JSON string in the 'h:X-Mailgun-Variables' header. Mailgun template syntax uses Handlebars ({{variable_name}})."
+    },
+    {
+      "title": "Parse an inbound email via Mailgun webhook",
+      "language": "typescript",
+      "code": "import express, { Request, Response } from 'express';\nimport crypto from 'crypto';\n\nconst app = express();\n\n// Mailgun sends inbound emails as multipart/form-data\napp.use(express.urlencoded({ extended: true }));\n\nfunction verifyMailgunSignature(\n  timestamp: string,\n  token: string,\n  signature: string\n): boolean {\n  const signingKey = process.env.MAILGUN_WEBHOOK_SIGNING_KEY ?? '';\n  const value = timestamp + token;\n  const hash = crypto\n    .createHmac('sha256', signingKey)\n    .update(value)\n    .digest('hex');\n  return hash === signature;\n}\n\napp.post('/webhooks/mailgun/inbound', (req: Request, res: Response): void => {\n  const { timestamp, token, signature } = req.body as {\n    timestamp: string;\n    token: string;\n    signature: string;\n  };\n\n  // Always verify the webhook signature to prevent spoofing\n  if (!verifyMailgunSignature(timestamp, token, signature)) {\n    res.status(401).json({ error: 'Invalid signature' });\n    return;\n  }\n\n  const sender = req.body['sender'] as string;\n  const subject = req.body['subject'] as string;\n  const bodyText = req.body['body-plain'] as string;\n  const recipient = req.body['recipient'] as string;\n\n  console.log(`Inbound email from ${sender} to ${recipient}: ${subject}`);\n  console.log('Body:', bodyText.slice(0, 200));\n\n  // Process the email (e.g., create a support ticket)\n  // ...\n\n  // Mailgun expects a 200 response to acknowledge receipt\n  res.status(200).json({ status: 'received' });\n});\n\napp.listen(3000, () => console.log('Webhook server running on port 3000'));",
+      "notes": "Configure inbound email routing in the Mailgun dashboard under Receiving > Routes. The signing key for webhook verification is different from the API key — find it under Settings > Webhooks. Always verify the signature to prevent spoofed webhook requests."
+    }
+  ],
+  "gotchas": [
+    "Mailgun API keys have a region-specific endpoint: US accounts use api.mailgun.net, EU accounts must use api.eu.mailgun.net. Using the wrong endpoint returns an authentication error with no helpful 'wrong region' message. Check your account region in the Mailgun dashboard under your domain settings.",
+    "Mailgun's free 3-month trial restricts sending to sandbox subdomains (sandboxXXXXXX.mailgun.org) — you cannot send to arbitrary addresses. You must add and DNS-verify a custom domain to send to real customers. Sandbox domains are for testing only and will not work in production.",
+    "The mailgun.js package requires form-data as a separate peer dependency in Node.js environments. In browser environments, the native FormData global is used automatically. Forgetting to install form-data results in a 'FormData is not defined' runtime error that can be confusing to debug.",
+    "Mailgun was acquired by Sinch in 2021. Some integrations (particularly older EU-hosted accounts) experienced billing and support disruptions during the transition. Platform stability has improved since, but the acquisition history is worth monitoring for any future ownership changes that could affect service continuity."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% uptime SLA (Enterprise plan)",
+    "statusPageUrl": "https://status.mailgun.com",
+    "notes": "Globally distributed MTA infrastructure with redundant delivery paths. Standard and Foundation plans do not include a formal SLA. Enterprise plan includes 99.99% uptime guarantee and dedicated support. Inbound email processing (routing) has occasionally had higher latency during traffic spikes."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Solid transactional email API with excellent inbound email parsing — a unique strength compared to Resend and Postmark. The email validation API adds genuine value for list hygiene. Loses points for a confusing free tier structure (3-month trial vs Flex plan vs Foundation), region-specific endpoints that cause silent failures, the form-data peer dependency issue, and organizational uncertainty following the Sinch acquisition. Stronger than SendGrid on inbound parsing; weaker on developer experience than Resend.",
+  "alternatives": ["resend", "sendgrid", "postmark"],
+  "complementary": ["supabase", "stripe", "clerk"],
+  "bestFor": "Transactional email with inbound email parsing — receive, parse, and route incoming emails via webhook in addition to high-deliverability outbound sending",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

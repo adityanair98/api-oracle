@@ -79,10 +79,11 @@ The `api-oracle` server will now appear in your MCP servers list.
 
 ```bash
 npm run dev        # Run with tsx (no build needed)
-npm test           # Run unit tests (56 tests)
+npm test           # Run unit tests (104 tests)
 npm run validate   # Validate all JSON entries + cross-references
 npm run seed       # Seed database
-npm run e2e        # Run 8 end-to-end query scenarios
+npm run e2e        # Run 12 end-to-end query scenarios (43 assertions)
+npm run analyze    # Score 20 representative queries and show breakdown
 ```
 
 ## Environment Variables
@@ -116,8 +117,10 @@ src/
 ├── knowledge/            # Core logic
 │   ├── schema.ts         # Zod schema + TypeScript types
 │   ├── db.ts             # SQLite CRUD (better-sqlite3)
-│   ├── search.ts         # Search entry point
-│   └── scorer.ts         # Weighted ranking engine
+│   ├── search.ts         # Search entry point (pipeline orchestration)
+│   ├── scorer.ts         # Weighted multi-factor ranking engine
+│   ├── synonyms.ts       # Query expansion, phrase detection, category detection
+│   └── tfidf.ts          # TF-IDF in-memory search index
 ├── entries/              # API knowledge base (35 JSON files)
 │   ├── ai/               # openai, anthropic, replicate, resemble-ai
 │   ├── analytics/        # sentry, posthog
@@ -139,11 +142,22 @@ src/
 
 See [docs/scoring-logic.md](docs/scoring-logic.md) for how the ranking algorithm works.
 
-## Roadmap (V0.3+)
+## How Search Works (v0.3)
 
-- **Semantic search** — vector embeddings for better query understanding (replace LIKE)
-- **More APIs** — Datadog, Stripe Billing, Twilio Segment, Cloudflare Workers KV, etc.
+1. **Phrase detection** — extracts `preferFree`, `preferOpenSource`, etc. from natural language
+2. **Synonym expansion** — "crashes" → error tracking; "log in" → auth; "billing" → payments
+3. **Category detection** — maps query to a category with confidence score
+4. **TF-IDF candidate selection** — field-weighted index pre-ranks all 35 entries; no LIKE queries
+5. **Multi-factor scoring** — 6 dimensions: useCaseFit (35%), quality (20%), devExperience (15%), pricingFit (15%), keywords (10%), recency (5%)
+6. **Category boost** — entries in the detected category receive up to 12% score boost
+7. **Confidence** — top result gets a 0-1 confidence score with "high/medium/low" label
+
+Result: **20/20 scoring analysis queries return sensible results** (up from 17/20 in v0.2).
+
+## Roadmap (V0.4+)
+
+- **More APIs** — Datadog, Cloudflare Workers KV, Resend v2 webhooks, etc.
+- **`list_apis_by_category` tool** — expose category browsing as a new MCP tool
+- **Graph scoring** — boost APIs commonly used together (via `complementary` field)
+- **Popularity signals** — GitHub stars, npm downloads as quality proxy
 - **Live validation** — periodically verify pricing/rate limits are still accurate
-- **Graph relationships** — boost APIs commonly used together
-- **Category browsing** — new tool: `list_apis_by_category`
-- **Feedback loop** — track which recommendations developers actually use

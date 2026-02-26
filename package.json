@@ -1,6 +1,6 @@
 {
   "name": "api-oracle",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "MCP server that finds, evaluates, and recommends the best API for any programming task",
   "type": "module",
   "scripts": {

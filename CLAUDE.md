@@ -15,11 +15,12 @@ Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSO
 |--------|---------|
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm run dev` | Run server directly with tsx (no compile needed) |
-| `npm test` | Run all tests with Vitest |
+| `npm test` | Run all tests with Vitest (104 tests) |
 | `npm run test:watch` | Watch mode for tests |
 | `npm run validate` | Validate all JSON entries against schema + cross-references (CI-safe) |
 | `npm run seed` | Load all JSON entries into SQLite database |
-| `npm run e2e` | Run end-to-end query scenarios against the live database |
+| `npm run e2e` | Run 12 end-to-end query scenarios (43 assertions) against the live database |
+| `npm run analyze` | Score 20 representative queries and show breakdown (requires seeded DB) |
 
 ## Code Conventions
 
@@ -36,13 +37,15 @@ Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSO
 |-------|----------|----------------|
 | **Schema** | `src/knowledge/schema.ts` | Zod schema + TypeScript types for API entries |
 | **Database** | `src/knowledge/db.ts` | SQLite CRUD via better-sqlite3 |
-| **Search** | `src/knowledge/search.ts` | Entry point: text search + scorer pipeline |
-| **Scorer** | `src/knowledge/scorer.ts` | Weighted multi-factor ranking algorithm |
+| **Synonyms** | `src/knowledge/synonyms.ts` | Query expansion, phrase detection, category detection |
+| **TF-IDF** | `src/knowledge/tfidf.ts` | In-memory TF-IDF index for candidate pre-ranking |
+| **Search** | `src/knowledge/search.ts` | Pipeline orchestration: phrases → synonyms → TF-IDF → scorer |
+| **Scorer** | `src/knowledge/scorer.ts` | Weighted multi-factor ranking (6 dimensions + category boost) |
 | **Tools** | `src/tools/*.ts` | MCP tool handlers — format results for Claude |
 | **Server** | `src/server.ts` | McpServer setup, tool registration |
 | **Entry** | `src/index.ts` | Startup: init DB, start server |
 | **Entries** | `src/entries/**/*.json` | API knowledge base (one JSON per API) |
-| **Scripts** | `scripts/*.ts` | seed-db.ts, validate-entries.ts, e2e-test.ts |
+| **Scripts** | `scripts/*.ts` | seed-db.ts, validate-entries.ts, e2e-test.ts, scoring-analysis.ts |
 
 ## How to Add a New API Entry
 

@@ -165,6 +165,81 @@ scenario("8. getApisByCategory('notifications') → returns all 3 notification A
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Scenario 9: Synonym expansion — "crashes" → sentry (error tracking)
+// Tests Phase 3: synonyms.ts expandQuery maps "crash" → error tracking group
+// ─────────────────────────────────────────────────────────────────────────────
+scenario("9. 'My app keeps crashing' → synonym expansion hits error tracking", () => {
+  const results = findApis("my app keeps crashing in production", undefined, 5);
+  assert(results.length > 0, "Returns at least one result");
+  const slugs = results.map((r) => r.entry.slug);
+  assert(
+    slugs.some((s) => ["sentry", "posthog"].includes(s)),
+    `Top 5 includes error tracking API (got: ${slugs.join(", ")})`
+  );
+  // Sentry should rank above non-monitoring APIs for this crash query
+  const sentryIdx = slugs.indexOf("sentry");
+  assert(sentryIdx >= 0, `Sentry is in top 5 (got: ${slugs.join(", ")})`);
+  assert(sentryIdx < 3, `Sentry ranks in top 3 (rank: ${sentryIdx + 1})`);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scenario 10: Confidence field on top result
+// Tests Phase 4: computeConfidence() attaches confidence to findApis() results
+// ─────────────────────────────────────────────────────────────────────────────
+scenario("10. Results for clear queries include confidence value", () => {
+  const results = findApis("send transactional emails", undefined, 3);
+  assert(results.length > 0, "Returns at least one result");
+  const top = results[0];
+  assert(top !== undefined, "Top result exists");
+  if (top) {
+    assert(
+      top.confidence !== undefined,
+      `Top result has confidence field (got: ${String(top.confidence)})`
+    );
+    assert(
+      top.confidenceLabel !== undefined,
+      `Top result has confidenceLabel (got: ${String(top.confidenceLabel)})`
+    );
+    assert(
+      typeof top.confidence === "number" && top.confidence >= 0 && top.confidence <= 1,
+      `Confidence is 0-1 (got: ${String(top.confidence)})`
+    );
+    assert(
+      ["high", "medium", "low"].includes(top.confidenceLabel ?? ""),
+      `ConfidenceLabel is high/medium/low (got: ${String(top.confidenceLabel)})`
+    );
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scenario 11: TF-IDF recall — multi-word AI query
+// Tests Phase 5: TF-IDF pre-ranking surfaces the right candidates
+// ─────────────────────────────────────────────────────────────────────────────
+scenario("11. 'Generate images from text prompts using AI' → openai/replicate", () => {
+  const results = findApis("generate images from text prompts using AI", undefined, 5);
+  assert(results.length > 0, "Returns at least one result");
+  const slugs = results.map((r) => r.entry.slug);
+  assert(
+    slugs.some((s) => ["openai", "replicate", "anthropic"].includes(s)),
+    `Top 5 includes an AI API (got: ${slugs.join(", ")})`
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scenario 12: Multi-intent query — supabase handles auth + db + storage
+// Tests Phase 3/5: expanded synonym coverage + TF-IDF field weighting
+// ─────────────────────────────────────────────────────────────────────────────
+scenario("12. 'I need auth, database, and storage for my app' → supabase or firebase", () => {
+  const results = findApis("I need auth, database, and storage for my app", undefined, 5);
+  assert(results.length > 0, "Returns at least one result");
+  const slugs = results.map((r) => r.entry.slug);
+  assert(
+    slugs.some((s) => ["supabase", "firebase"].includes(s)),
+    `Top 5 includes a full-stack BaaS platform (got: ${slugs.join(", ")})`
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Summary
 // ─────────────────────────────────────────────────────────────────────────────
 const total = passed + failed;

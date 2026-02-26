@@ -1,0 +1,91 @@
+{
+  "name": "Lemon Squeezy",
+  "slug": "lemonsqueezy",
+  "category": "payments",
+  "subcategory": "merchant-of-record",
+  "website": "https://lemonsqueezy.com",
+  "description": "Lemon Squeezy is a Merchant of Record platform for selling digital products, software licenses, and SaaS subscriptions. Like Paddle, it handles all tax compliance globally. Designed with a developer-first API and a clean merchant dashboard. Particularly strong for selling one-time digital products (ebooks, templates, plugins) in addition to subscriptions.",
+  "useCases": [
+    {
+      "task": "Sell digital products (ebooks, templates, plugins) with instant delivery",
+      "fit": "perfect"
+    },
+    {
+      "task": "Accept SaaS subscription payments with global tax handling",
+      "fit": "perfect"
+    },
+    {
+      "task": "Generate and manage software license keys",
+      "fit": "good"
+    },
+    {
+      "task": "Set up a simple checkout page without building a custom payment UI",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create a Lemon Squeezy account at lemonsqueezy.com",
+      "Verify your account and complete store setup",
+      "Add your store and configure store details",
+      "Create products in your store dashboard",
+      "Go to Settings > API and generate an API key",
+      "Set up webhooks in Settings > Webhooks and copy the signing secret"
+    ],
+    "envVarName": "LEMONSQUEEZY_API_KEY",
+    "codeSnippet": "import { lemonSqueezySetup } from '@lemonsqueezy/lemonsqueezy.js';\n\nlemonSqueezySetup({\n  apiKey: process.env.LEMONSQUEEZY_API_KEY!,\n  onError: (error) => console.error('Lemon Squeezy error:', error),\n});"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": null,
+    "startingPrice": "5% + $0.50 per transaction (Starter)",
+    "costPer": "5% + $0.50 per transaction; Enterprise plans negotiated for high volume",
+    "pricingUrl": "https://www.lemonsqueezy.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "standard",
+    "limit": "120 API requests/minute",
+    "notes": "Webhooks delivered at least once with retry on failure. Event IDs should be used for idempotency.",
+    "retryStrategy": "Use the event_id from webhook payload as idempotency key. Return HTTP 200 immediately and process async."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @lemonsqueezy/lemonsqueezy.js",
+    "importStatement": "import { lemonSqueezySetup, getProducts, createCheckout } from '@lemonsqueezy/lemonsqueezy.js';",
+    "otherLanguages": ["php", "python"]
+  },
+  "codeExamples": [
+    {
+      "title": "Create a checkout session",
+      "language": "typescript",
+      "code": "import { lemonSqueezySetup, createCheckout } from '@lemonsqueezy/lemonsqueezy.js';\n\nlemonSqueezySetup({\n  apiKey: process.env.LEMONSQUEEZY_API_KEY!,\n});\n\n// Create a checkout for a specific variant\nconst { data, error } = await createCheckout(\n  process.env.LEMONSQUEEZY_STORE_ID!, // Your store ID\n  process.env.LEMONSQUEEZY_VARIANT_ID!, // The product variant ID\n  {\n    checkoutOptions: {\n      embed: false,\n      media: true,\n      logo: true,\n    },\n    checkoutData: {\n      email: 'customer@example.com', // Pre-fill customer email\n      custom: {\n        userId: 'user_123', // Pass through to webhooks\n      },\n    },\n    productOptions: {\n      redirectUrl: 'https://yourapp.com/success',\n      receiptButtonText: 'Go to Dashboard',\n      receiptThankYouNote: 'Thank you for subscribing!',\n    },\n  }\n);\n\nif (error) {\n  console.error('Failed to create checkout:', error);\n  throw new Error(error.title);\n}\n\nconst checkoutUrl = data?.data.attributes.url;\nconsole.log('Checkout URL:', checkoutUrl);\n// Redirect user to checkoutUrl",
+      "notes": "Lemon Squeezy checkout URLs are single-use and expire after 24 hours. Always generate a fresh checkout URL per customer session. Pass custom data (like userId) in checkoutData.custom — it will be available in webhook payloads."
+    },
+    {
+      "title": "Verify and handle webhook",
+      "language": "typescript",
+      "code": "import crypto from 'crypto';\nimport type { Request, Response } from 'express';\n\ninterface LemonSqueezyWebhookPayload {\n  meta: {\n    event_name: string;\n    custom_data?: Record<string, string>;\n  };\n  data: {\n    id: string;\n    attributes: Record<string, unknown>;\n  };\n}\n\nexport async function handleLemonSqueezyWebhook(req: Request, res: Response) {\n  const rawBody = req.body as string; // Must be raw string before JSON parse\n  const signature = req.headers['x-signature'] as string;\n\n  // Verify HMAC-SHA256 signature\n  const hmac = crypto.createHmac('sha256', process.env.LEMONSQUEEZY_WEBHOOK_SECRET!);\n  const digest = hmac.update(rawBody).digest('hex');\n\n  if (!crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature))) {\n    console.error('Invalid webhook signature');\n    return res.status(401).send('Invalid signature');\n  }\n\n  const payload = JSON.parse(rawBody) as LemonSqueezyWebhookPayload;\n  const eventName = payload.meta.event_name;\n  const eventId = payload.data.id; // Use as idempotency key\n  const customData = payload.meta.custom_data;\n\n  switch (eventName) {\n    case 'order_created': {\n      const order = payload.data.attributes;\n      console.log('New order:', eventId, 'status:', order['status']);\n      // Deliver digital product or provision access\n      if (order['status'] === 'paid') {\n        await deliverProduct(customData?.userId, eventId);\n      }\n      break;\n    }\n    case 'subscription_created': {\n      const subscription = payload.data.attributes;\n      console.log('New subscription:', eventId, 'status:', subscription['status']);\n      await provisionSubscription(customData?.userId, payload.data.id);\n      break;\n    }\n    case 'subscription_cancelled': {\n      console.log('Subscription cancelled:', eventId);\n      await scheduleAccessRevocation(customData?.userId);\n      break;\n    }\n    default:\n      console.log('Unhandled event:', eventName);\n  }\n\n  return res.status(200).json({ received: true, eventId });\n}\n\nasync function deliverProduct(userId: string | undefined, orderId: string) {\n  // Your product delivery logic here\n}\n\nasync function provisionSubscription(userId: string | undefined, subscriptionId: string) {\n  // Your subscription provisioning logic here\n}\n\nasync function scheduleAccessRevocation(userId: string | undefined) {\n  // Your access revocation logic here\n}",
+      "notes": "Lemon Squeezy uses HMAC-SHA256 for webhook signature verification — use crypto.timingSafeEqual() to prevent timing attacks. The raw body must be used for signature verification before parsing as JSON. Use payload.data.id as an idempotency key."
+    }
+  ],
+  "gotchas": [
+    "Lemon Squeezy is newer and smaller than Paddle or Stripe. In 2024, Stripe acquired Lemon Squeezy. While this is broadly positive for stability, the roadmap may change and some features may eventually be consolidated into Stripe's MoR offerings.",
+    "Like Paddle, Lemon Squeezy is the Merchant of Record — your company name does NOT appear on bank statements. Some B2B customers require invoices from the actual vendor and may push back on the MoR model for procurement.",
+    "Lemon Squeezy's API rate limit (120 requests/minute) is lower than Paddle's. If you have bulk operations (syncing subscribers, updating prices across many products), implement request queuing and exponential backoff.",
+    "License key generation is a powerful feature but must be explicitly enabled per product and configured with a key pattern. Keys are not automatically generated for subscriptions — only for products with license keys enabled."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime (no published SLA)",
+    "statusPageUrl": "https://lemonsqueezy.statuspage.io",
+    "notes": "Stripe-backed infrastructure after 2024 acquisition. Handles PCI DSS compliance and tax remittance as Merchant of Record globally."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Excellent developer experience for selling digital products and licenses. Cleaner UI than Paddle, good API documentation. Acquisition by Stripe in 2024 provides stability but also introduces uncertainty about long-term direction. Scores below Paddle for market maturity and enterprise readiness.",
+  "alternatives": ["paddle", "stripe"],
+  "complementary": ["resend", "clerk", "supabase"],
+  "bestFor": "Selling digital products, software licenses, and SaaS subscriptions without managing tax compliance — particularly strong for individual creators and small teams",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

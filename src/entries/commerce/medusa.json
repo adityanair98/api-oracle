@@ -1,0 +1,91 @@
+{
+  "name": "Medusa",
+  "slug": "medusa",
+  "category": "commerce",
+  "subcategory": "headless-commerce",
+  "website": "https://medusajs.com",
+  "description": "Medusa is an open source Node.js headless commerce platform — a self-hosted Shopify alternative. Provides a REST API for products, orders, carts, customers, and payments, plus a plugin system for payment processors (Stripe, PayPal), fulfilment, and CMS. Run on your own server (Railway, Fly.io) or use Medusa Cloud. Full control over data and customization.",
+  "useCases": [
+    {
+      "task": "Build a custom ecommerce store with full control over data and infrastructure",
+      "fit": "perfect"
+    },
+    {
+      "task": "Create a headless commerce backend for a custom frontend",
+      "fit": "perfect"
+    },
+    {
+      "task": "Migrate off Shopify to own your ecommerce data",
+      "fit": "good"
+    },
+    {
+      "task": "Build a marketplace with multi-vendor support",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Run 'npx create-medusa-app@latest' to scaffold a new Medusa project",
+      "Provision a PostgreSQL database and Redis instance (local or managed)",
+      "Configure DATABASE_URL and REDIS_URL in your .env file",
+      "Start the server with 'npx medusa develop' and complete the admin account setup",
+      "In the admin dashboard, navigate to Settings > API Keys to create a publishable key",
+      "Set MEDUSA_ADMIN_API_KEY (secret) and NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY (storefront) as environment variables"
+    ],
+    "envVarName": "MEDUSA_ADMIN_API_KEY",
+    "codeSnippet": "import Medusa from '@medusajs/js-sdk';\n\nconst medusa = new Medusa({\n  baseUrl: process.env.MEDUSA_BACKEND_URL ?? 'http://localhost:9000',\n  publishableKey: process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY!,\n});"
+  },
+  "pricing": {
+    "model": "open_source",
+    "freeTier": "Self-hosted: free forever (pay for your own infrastructure). Medusa Cloud plans for managed hosting start at $0 (Starter).",
+    "startingPrice": "Self-hosted: your infrastructure costs only (Railway from $5/month, Fly.io from ~$5/month). Medusa Cloud: TBD pricing.",
+    "costPer": null,
+    "pricingUrl": "https://medusajs.com/pricing/"
+  },
+  "rateLimits": {
+    "tier": "self-hosted",
+    "limit": "No built-in rate limits — determined by your server capacity and any rate limiting middleware you add",
+    "notes": "For production deployments, add rate limiting via middleware or a reverse proxy (nginx, Cloudflare). Medusa does not include rate limiting out of the box.",
+    "retryStrategy": "Standard HTTP retry patterns. Consider adding express-rate-limit middleware for your self-hosted instance."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @medusajs/js-sdk",
+    "importStatement": "import Medusa from '@medusajs/js-sdk';",
+    "otherLanguages": ["javascript", "python"]
+  },
+  "codeExamples": [
+    {
+      "title": "List products from Medusa storefront",
+      "language": "typescript",
+      "code": "import Medusa from '@medusajs/js-sdk';\n\nconst medusa = new Medusa({\n  baseUrl: process.env.MEDUSA_BACKEND_URL ?? 'http://localhost:9000',\n  publishableKey: process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY!,\n});\n\n// Fetch the first page of products with their variants and images\nconst { products, count, offset, limit } = await medusa.store.product.list({\n  limit: 20,\n  offset: 0,\n  fields: '+variants,+images,+thumbnail',\n});\n\nconsole.log(`Found ${count} total products, showing ${products.length}`);\n\nfor (const product of products) {\n  console.log(`- ${product.title} (${product.variants?.length ?? 0} variants)`);\n  const prices = product.variants?.map((v) =>\n    v.calculated_price?.calculated_amount\n  );\n  console.log(`  Price range: ${Math.min(...(prices ?? [0]))} – ${Math.max(...(prices ?? [0]))}`);\n}",
+      "notes": "The publishable key is safe to use in browser/client code. Use 'fields' to select only the data you need — fetching all fields on large catalogs is slow. Paginate with limit/offset for catalogs larger than 20 products."
+    },
+    {
+      "title": "Create a cart and add an item",
+      "language": "typescript",
+      "code": "import Medusa from '@medusajs/js-sdk';\n\nconst medusa = new Medusa({\n  baseUrl: process.env.MEDUSA_BACKEND_URL ?? 'http://localhost:9000',\n  publishableKey: process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY!,\n});\n\n// Step 1: Retrieve available regions\nconst { regions } = await medusa.store.region.list();\nconst region = regions[0]; // Use the first region (e.g., United States)\n\n// Step 2: Create an empty cart for the region\nconst { cart } = await medusa.store.cart.create({\n  region_id: region.id,\n  currency_code: region.currency_code,\n});\n\nconsole.log('Created cart:', cart.id);\n\n// Step 3: Add a line item (requires a valid variant ID from your store)\nconst variantId = 'variant_01JEXAMPLE'; // Replace with a real variant ID\n\nconst { cart: updatedCart } = await medusa.store.cart.createLineItem(cart.id, {\n  variant_id: variantId,\n  quantity: 1,\n});\n\nconsole.log(\n  `Cart now has ${updatedCart.items?.length} item(s)`,\n  `Total: ${updatedCart.total} ${updatedCart.currency_code?.toUpperCase()}`\n);",
+      "notes": "Cart IDs should be persisted in localStorage or a cookie so returning users can resume their cart. Medusa v2 uses a new cart API — this code is not compatible with Medusa v1. Always look up the region first; currency and tax rates are region-scoped."
+    }
+  ],
+  "gotchas": [
+    "Medusa requires a PostgreSQL database and Redis for session/queue management. This is two additional services to provision and maintain. With Vercel + Neon + Upstash, you can get a fully serverless Medusa deployment, but the setup is non-trivial compared to hosted solutions.",
+    "Medusa v2 (released 2024) is a major rewrite with breaking API changes. Plugins built for v1 don't work with v2. Check that any community plugins you want are v2-compatible before starting — some popular ones (specific payment providers, fulfilment integrations) may lag behind.",
+    "Self-hosting means you're responsible for uptime, database backups, security patches, and SSL certificates. Medusa does not provide a managed hosting option with SLAs — if your server goes down, your store goes down. Budget for ops time or use a PaaS like Railway or Fly.io with auto-restart.",
+    "Medusa's admin dashboard is a separate application that must be built and deployed separately from the API. Running both on the same server is possible but not recommended for production. Plan for two deployments: API server and Admin dashboard."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "Self-hosted — uptime is your responsibility; Medusa Cloud: not yet publicly available with SLA",
+    "statusPageUrl": null,
+    "notes": "Deploy on Railway or Fly.io with auto-restart for best reliability. Use Neon or Supabase for managed Postgres with auto-failover."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Best open source headless commerce platform for developers who want Shopify-level features with full data ownership. Active community, good documentation, and v2 is a significant improvement. Loses points for operational complexity (Postgres + Redis required) and the ecosystem lag in plugin compatibility between v1 and v2.",
+  "alternatives": ["shopify-api"],
+  "complementary": ["stripe", "railway", "fly-io", "neon", "supabase", "algolia", "cloudinary", "resend"],
+  "bestFor": "Building a custom ecommerce store with full ownership of data and infrastructure — the open source alternative to Shopify with no vendor lock-in",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

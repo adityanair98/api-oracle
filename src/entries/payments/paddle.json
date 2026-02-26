@@ -1,0 +1,90 @@
+{
+  "name": "Paddle",
+  "slug": "paddle",
+  "category": "payments",
+  "subcategory": "merchant-of-record",
+  "website": "https://paddle.com",
+  "description": "Paddle is a Merchant of Record (MoR) that handles payments, subscriptions, global tax compliance (VAT, GST, sales tax), and fraud detection for SaaS businesses. You sell through Paddle — they handle the tax liability, meaning you never have to register for VAT in individual countries. Ideal for indie developers and SaaS companies selling globally without a dedicated finance team.",
+  "useCases": [
+    {
+      "task": "Accept SaaS subscription payments globally without handling tax compliance",
+      "fit": "perfect"
+    },
+    {
+      "task": "Sell a software product to international customers with automatic VAT/GST",
+      "fit": "perfect"
+    },
+    {
+      "task": "Manage subscription upgrades, downgrades, and trials",
+      "fit": "good"
+    },
+    {
+      "task": "Process one-time payments for digital products",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Register a Paddle account at paddle.com",
+      "Verify your business details and get approved as a Paddle seller",
+      "Add your products and prices in the Paddle Dashboard",
+      "Go to Developer Tools > Authentication and generate your API key",
+      "Configure webhooks in Developer Tools > Notifications and copy the webhook secret"
+    ],
+    "envVarName": "PADDLE_API_KEY",
+    "codeSnippet": "import { Paddle, Environment } from '@paddle/paddle-node-sdk';\n\nconst paddle = new Paddle(process.env.PADDLE_API_KEY!, {\n  environment: Environment.Sandbox, // Use Environment.Production for live\n});"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": null,
+    "startingPrice": "5% + $0.50 per transaction (Starter)",
+    "costPer": "5% + $0.50/transaction up to $10K MRR; custom rates above $50K MRR",
+    "pricingUrl": "https://paddle.com/pricing/"
+  },
+  "rateLimits": {
+    "tier": "standard",
+    "limit": "200 API requests/minute",
+    "notes": "Webhook events are delivered at least once — implement idempotency keys to handle duplicates. Paddle retries failed webhooks for up to 72 hours.",
+    "retryStrategy": "Implement webhook idempotency using the event ID. Return 200 quickly; process async."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @paddle/paddle-node-sdk",
+    "importStatement": "import { Paddle, Environment } from '@paddle/paddle-node-sdk';",
+    "otherLanguages": ["python", "php", "ruby"]
+  },
+  "codeExamples": [
+    {
+      "title": "Create a subscription checkout link",
+      "language": "typescript",
+      "code": "import { Paddle, Environment } from '@paddle/paddle-node-sdk';\n\nconst paddle = new Paddle(process.env.PADDLE_API_KEY!, {\n  environment: Environment.Sandbox,\n});\n\n// Create a transaction (checkout) for a subscription price\nconst transaction = await paddle.transactions.create({\n  items: [\n    {\n      priceId: 'pri_01h1234abcde', // Your Paddle price ID\n      quantity: 1,\n    },\n  ],\n  customData: {\n    userId: 'user_123',\n    planName: 'pro',\n  },\n  checkoutSettings: {\n    successUrl: 'https://yourapp.com/success',\n  },\n});\n\n// Redirect user to checkout\nconst checkoutUrl = transaction.checkout?.url;\nconsole.log('Checkout URL:', checkoutUrl);",
+      "notes": "Paddle generates a hosted checkout page — redirect the user to transaction.checkout.url. You do not need to build your own payment form. Paddle's overlay checkout can also be embedded on your page using Paddle.js."
+    },
+    {
+      "title": "Handle Paddle webhook events",
+      "language": "typescript",
+      "code": "import { Paddle, Environment } from '@paddle/paddle-node-sdk';\nimport type { Request, Response } from 'express';\n\nconst paddle = new Paddle(process.env.PADDLE_API_KEY!, {\n  environment: Environment.Sandbox,\n});\n\nexport async function handlePaddleWebhook(req: Request, res: Response) {\n  const signature = req.headers['paddle-signature'] as string;\n  const rawBody = req.body as string; // Must be raw string, not parsed JSON\n\n  let event;\n  try {\n    event = paddle.webhooks.unmarshal(\n      rawBody,\n      process.env.PADDLE_WEBHOOK_SECRET!,\n      signature\n    );\n  } catch (err) {\n    console.error('Webhook signature verification failed:', err);\n    return res.status(400).send('Invalid signature');\n  }\n\n  // Use event.eventId as idempotency key to avoid double-processing\n  const eventId = event.eventId;\n\n  switch (event.eventType) {\n    case 'subscription.created': {\n      const subscription = event.data;\n      console.log('New subscription:', subscription.id, 'customer:', subscription.customerId);\n      // Provision access for the customer\n      await provisionSubscription(subscription.customerId, subscription.id);\n      break;\n    }\n    case 'transaction.completed': {\n      const transaction = event.data;\n      console.log('Payment succeeded:', transaction.id, 'total:', transaction.details?.totals?.total);\n      // Update payment records\n      await recordPayment(transaction.id, transaction.customerId);\n      break;\n    }\n    case 'subscription.canceled': {\n      const subscription = event.data;\n      console.log('Subscription canceled:', subscription.id);\n      // Revoke access at period end\n      await scheduleAccessRevocation(subscription.customerId, subscription.scheduledChange?.effectiveAt);\n      break;\n    }\n    default:\n      console.log('Unhandled event type:', event.eventType);\n  }\n\n  // Always return 200 immediately\n  return res.status(200).json({ received: true, eventId });\n}\n\nasync function provisionSubscription(customerId: string, subscriptionId: string) {\n  // Your provisioning logic here\n}\n\nasync function recordPayment(transactionId: string, customerId: string) {\n  // Your payment recording logic here\n}\n\nasync function scheduleAccessRevocation(customerId: string, effectiveAt?: string) {\n  // Your access revocation logic here\n}",
+      "notes": "Paddle webhooks must be verified using paddle.webhooks.unmarshal(). Pass the raw request body as a string — do not parse it as JSON before verification. Use the eventId as an idempotency key to safely handle Paddle's at-least-once delivery."
+    }
+  ],
+  "gotchas": [
+    "Paddle is the Merchant of Record — customers see 'Paddle' on their bank statement, not your company name. Some customers may be confused by this and initiate chargebacks thinking it's a fraudulent charge. Add a note to your receipt emails explaining this.",
+    "Paddle's Merchant of Record model means you CANNOT easily migrate your subscriber base to another payment processor. All subscription data (customer, payment method, billing history) is locked in Paddle. Plan your stack accordingly before onboarding thousands of subscribers.",
+    "Paddle's 5% fee applies to every transaction including renewals. At scale, this becomes expensive compared to Stripe (2.9% + $0.30) — especially for low-ticket, high-volume subscriptions. Calculate the break-even point for your price point.",
+    "Paddle's sandbox environment uses different API keys than production. Test mode and live mode are completely separate — you cannot transfer products, prices, or customer data between them."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA",
+    "statusPageUrl": "https://paddle.statuspage.io",
+    "notes": "Globally distributed payment infrastructure with automatic failover. Paddle handles PCI DSS compliance on your behalf as Merchant of Record."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best choice for indie hackers and small SaaS teams that want to sell globally without a finance/legal team. Handles VAT, GST, and sales tax automatically as Merchant of Record. SDK quality is good; dashboard is polished. Transaction fee (5%) is higher than Stripe but includes tax handling that would otherwise require a separate service like TaxJar.",
+  "alternatives": ["lemonsqueezy", "stripe"],
+  "complementary": ["stripe", "resend", "clerk", "supabase"],
+  "bestFor": "Selling SaaS subscriptions and digital products globally without managing tax compliance — Paddle acts as the legal seller in each country",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

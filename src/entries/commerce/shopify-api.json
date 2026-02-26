@@ -1,0 +1,91 @@
+{
+  "name": "Shopify API",
+  "slug": "shopify-api",
+  "category": "commerce",
+  "subcategory": "ecommerce-platform",
+  "website": "https://shopify.dev",
+  "description": "Shopify provides a REST and GraphQL API for building custom storefronts, apps, and integrations on top of the world's largest ecommerce platform. The Storefront API enables headless commerce (fetch products, manage carts, process checkouts) while the Admin API allows full management of orders, products, and customers. Over 1.7M merchants run on Shopify.",
+  "useCases": [
+    {
+      "task": "Build a headless storefront that fetches products from Shopify",
+      "fit": "perfect"
+    },
+    {
+      "task": "Create a Shopify app that extends merchant functionality",
+      "fit": "perfect"
+    },
+    {
+      "task": "Sync order data from Shopify to an external system",
+      "fit": "good"
+    },
+    {
+      "task": "Add a custom checkout flow to an existing Shopify store",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "oauth2",
+    "setupSteps": [
+      "Create a Shopify Partner account at partners.shopify.com",
+      "Create a new app in the Partner Dashboard and configure scopes",
+      "Install the app on a development store to initiate the OAuth flow",
+      "After OAuth, store the Admin API access token securely on your server",
+      "For the Storefront API, enable it in the app settings and copy the Storefront access token",
+      "Set SHOPIFY_ADMIN_API_TOKEN and SHOPIFY_STOREFRONT_ACCESS_TOKEN as environment variables"
+    ],
+    "envVarName": "SHOPIFY_STOREFRONT_ACCESS_TOKEN",
+    "codeSnippet": "import '@shopify/shopify-api/adapters/node';\nimport { shopifyApi, ApiVersion } from '@shopify/shopify-api';\n\nconst shopify = shopifyApi({\n  apiKey: process.env.SHOPIFY_API_KEY!,\n  apiSecretKey: process.env.SHOPIFY_API_SECRET!,\n  adminApiAccessToken: process.env.SHOPIFY_ADMIN_API_TOKEN!,\n  hostName: process.env.SHOPIFY_SHOP_DOMAIN!,\n  apiVersion: ApiVersion.January25,\n  isEmbeddedApp: false,\n});"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "Development stores are free; merchant plans from $29/month (not charged to developer)",
+    "startingPrice": "API access is free; Shopify Partner apps charged on usage beyond free API call quotas",
+    "costPer": "Storefront API: free. Admin API: 2 request/second (REST) or 50 points/second (GraphQL) rate limits apply; over-limit costs nothing but responses are throttled",
+    "pricingUrl": "https://shopify.dev/docs/api/usage/rate-limits"
+  },
+  "rateLimits": {
+    "tier": "standard",
+    "limit": "REST Admin: 2 calls/second; GraphQL Admin: 50 points/second query cost budget; Storefront: 100 calls/minute per storefront",
+    "notes": "GraphQL Admin API uses cost-based rate limiting. Each field has a cost; complex queries with many nested fields cost more points. Check X-GraphQL-Cost-Include-Fields response header.",
+    "retryStrategy": "Check Retry-After header on 429 responses. GraphQL responses include extensions.cost with throttle status. Implement exponential backoff starting at 1 second."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @shopify/shopify-api",
+    "importStatement": "import '@shopify/shopify-api/adapters/node';\nimport { shopifyApi, ApiVersion } from '@shopify/shopify-api';",
+    "otherLanguages": ["python", "ruby", "php"]
+  },
+  "codeExamples": [
+    {
+      "title": "Fetch products with Storefront API (GraphQL)",
+      "language": "typescript",
+      "code": "const STOREFRONT_QUERY = `\n  query GetProducts($first: Int!) {\n    products(first: $first) {\n      edges {\n        node {\n          id\n          title\n          handle\n          priceRange {\n            minVariantPrice {\n              amount\n              currencyCode\n            }\n          }\n          images(first: 1) {\n            edges {\n              node {\n                url\n                altText\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n`;\n\nconst response = await fetch(\n  `https://${process.env.SHOPIFY_SHOP_DOMAIN}/api/2025-01/graphql.json`,\n  {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN!,\n    },\n    body: JSON.stringify({\n      query: STOREFRONT_QUERY,\n      variables: { first: 20 },\n    }),\n  }\n);\n\nconst { data } = await response.json();\nconst products = data.products.edges.map((edge: any) => edge.node);\nconsole.log('Products:', products);",
+      "notes": "The Storefront API access token is safe to use in client-side code. Always paginate with a reasonable 'first' value (20-50) rather than fetching hundreds of products at once to avoid hitting query cost limits."
+    },
+    {
+      "title": "Create an order via Admin API",
+      "language": "typescript",
+      "code": "import '@shopify/shopify-api/adapters/node';\nimport { shopifyApi, ApiVersion } from '@shopify/shopify-api';\n\nconst shopify = shopifyApi({\n  apiKey: process.env.SHOPIFY_API_KEY!,\n  apiSecretKey: process.env.SHOPIFY_API_SECRET!,\n  adminApiAccessToken: process.env.SHOPIFY_ADMIN_API_TOKEN!,\n  hostName: process.env.SHOPIFY_SHOP_DOMAIN!,\n  apiVersion: ApiVersion.January25,\n  isEmbeddedApp: false,\n});\n\nconst client = new shopify.clients.Rest({\n  session: {\n    shop: process.env.SHOPIFY_SHOP_DOMAIN!,\n    accessToken: process.env.SHOPIFY_ADMIN_API_TOKEN!,\n  } as any,\n});\n\nconst response = await client.post({\n  path: 'orders',\n  data: {\n    order: {\n      email: 'customer@example.com',\n      financial_status: 'paid',\n      line_items: [\n        {\n          title: 'Custom T-Shirt',\n          price: '29.99',\n          quantity: 2,\n          requires_shipping: true,\n        },\n      ],\n      billing_address: {\n        first_name: 'Jane',\n        last_name: 'Doe',\n        address1: '123 Main St',\n        city: 'San Francisco',\n        province: 'California',\n        country: 'United States',\n        zip: '94101',\n      },\n    },\n  },\n});\n\nconst order = response.body as any;\nconsole.log('Created order ID:', order.order.id);",
+      "notes": "Admin API calls must be made server-side only — never expose your Admin API token in client code. The REST Admin API processes orders synchronously; for high-volume scenarios, use the GraphQL Bulk Operations API instead."
+    }
+  ],
+  "gotchas": [
+    "Shopify has TWO separate APIs with different authentication: the Storefront API (public-facing, uses a Storefront access token, safe to expose in client code) and the Admin API (private, uses OAuth or Admin API token, NEVER expose in client code). Using the Admin token in a frontend app is a critical security vulnerability.",
+    "GraphQL API cost is based on complexity, not just count. A query for 250 products with 10 fields each might cost 2,500 points — hitting the 50,000 point/second limit with just 20 concurrent users. Always request only needed fields and use pagination (first: 50) instead of fetching everything at once.",
+    "Shopify's API versioning is date-based (e.g., 2024-01). Versions are supported for 12 months after release, then deprecated. Running an app on an old API version will suddenly break when Shopify removes it. Implement API version upgrade as part of your maintenance routine.",
+    "Webhooks from Shopify must be verified using the HMAC-SHA256 signature in the X-Shopify-Hmac-SHA256 header. Accepting webhooks without verification allows any actor to fake Shopify events — a security vulnerability. Always verify before processing."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.98% uptime SLA for Shopify platform",
+    "statusPageUrl": "https://www.shopifystatus.com",
+    "notes": "Globally distributed on Google Cloud infrastructure. Shopify CDN serves storefront assets with high availability. Peak traffic (Black Friday/Cyber Monday) is handled at scale — Shopify processes millions of requests per minute during peak events."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Access to 1.7M+ merchant stores makes the Shopify API uniquely powerful for building apps and integrations. The Storefront API is well-designed for headless commerce. GraphQL Admin API is flexible but complex. Main friction: the Storefront API lacks some commerce capabilities (subscriptions require apps), and the versioning cadence requires ongoing maintenance.",
+  "alternatives": ["medusa"],
+  "complementary": ["stripe", "algolia", "cloudinary", "resend"],
+  "bestFor": "Building headless storefronts, custom checkout experiences, or apps that integrate with existing Shopify merchant stores",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

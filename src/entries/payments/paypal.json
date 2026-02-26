@@ -1,0 +1,91 @@
+{
+  "name": "PayPal",
+  "slug": "paypal",
+  "category": "payments",
+  "subcategory": "payment-processing",
+  "website": "https://developer.paypal.com",
+  "description": "PayPal is one of the world's most widely recognized payment platforms, supporting 400M+ active accounts. While not the best developer experience compared to Stripe, PayPal's ubiquity means many customers — especially in B2C markets — prefer or require it. Supports credit/debit cards, PayPal balance, PayPal Credit, Venmo (US), and Buy Now Pay Later via its REST API.",
+  "useCases": [
+    {
+      "task": "Accept PayPal payments from customers who prefer PayPal over credit cards",
+      "fit": "perfect"
+    },
+    {
+      "task": "Offer Buy Now Pay Later (BNPL) as a checkout option",
+      "fit": "good"
+    },
+    {
+      "task": "Accept international payments in 100+ currencies",
+      "fit": "good"
+    },
+    {
+      "task": "Process payments on a marketplace with seller payouts",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "oauth2",
+    "setupSteps": [
+      "Create a PayPal Developer account at developer.paypal.com",
+      "Go to My Apps & Credentials and create a new app",
+      "Copy your Client ID and Client Secret from the app details page",
+      "Use the Sandbox credentials for development and testing",
+      "Authenticate by POSTing to /v1/oauth2/token with client_credentials grant to receive a Bearer token",
+      "Swap to Live credentials in production by updating PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET"
+    ],
+    "envVarName": "PAYPAL_CLIENT_ID",
+    "codeSnippet": "import { Client, Environment } from '@paypal/paypal-server-sdk';\n\nconst client = new Client({\n  clientCredentialsAuthCredentials: {\n    oAuthClientId: process.env.PAYPAL_CLIENT_ID!,\n    oAuthClientSecret: process.env.PAYPAL_CLIENT_SECRET!,\n  },\n  environment: Environment.Sandbox, // Use Environment.Production for live\n});"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": null,
+    "startingPrice": "2.99% per transaction (PayPal Commerce Platform)",
+    "costPer": "2.99% domestic card transactions; 3.49% + $0.49 for PayPal digital payments; additional 1.5% for international transactions",
+    "pricingUrl": "https://www.paypal.com/us/webapps/mpp/merchant-fees"
+  },
+  "rateLimits": {
+    "tier": "standard",
+    "limit": "Not publicly documented — throttling occurs under heavy load",
+    "notes": "PayPal's API reliability is inconsistent. Implement generous timeouts (10-30s) and retry logic. The Orders API v2 is more reliable than older NVP/SOAP APIs.",
+    "retryStrategy": "Use idempotency-request-id header on POST requests. Retry on 429 and 5xx with exponential backoff (start at 1s, max 32s)."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @paypal/paypal-server-sdk",
+    "importStatement": "import { Client, OrdersController } from '@paypal/paypal-server-sdk';",
+    "otherLanguages": ["python", "java", "php", "ruby"]
+  },
+  "codeExamples": [
+    {
+      "title": "Create a PayPal order",
+      "language": "typescript",
+      "code": "import { Client, Environment, OrdersController, CheckoutPaymentIntent } from '@paypal/paypal-server-sdk';\n\nconst client = new Client({\n  clientCredentialsAuthCredentials: {\n    oAuthClientId: process.env.PAYPAL_CLIENT_ID!,\n    oAuthClientSecret: process.env.PAYPAL_CLIENT_SECRET!,\n  },\n  environment: Environment.Sandbox,\n});\n\nconst ordersController = new OrdersController(client);\n\n// Create an order and get the approval URL\nconst { body: order } = await ordersController.ordersCreate({\n  body: {\n    intent: CheckoutPaymentIntent.Capture,\n    purchaseUnits: [\n      {\n        amount: {\n          currencyCode: 'USD',\n          value: '20.00',\n        },\n        description: 'Pro Plan Subscription',\n        referenceId: 'order_123',\n      },\n    ],\n    applicationContext: {\n      returnUrl: 'https://yourapp.com/checkout/success',\n      cancelUrl: 'https://yourapp.com/checkout/cancel',\n      brandName: 'Your App',\n      userAction: 'PAY_NOW',\n    },\n  },\n  prefer: 'return=representation',\n});\n\n// Find the approval URL to redirect the customer\nconst approvalLink = order.links?.find((link) => link.rel === 'approve');\nconsole.log('Redirect customer to:', approvalLink?.href);\nconsole.log('Order ID:', order.id);",
+      "notes": "Redirect the customer to the approval URL returned in order.links where rel === 'approve'. After the customer approves, PayPal redirects them to your returnUrl with the token and PayerID query params. Use the order.id to capture the payment in the next step."
+    },
+    {
+      "title": "Capture payment after customer approval",
+      "language": "typescript",
+      "code": "import { Client, Environment, OrdersController } from '@paypal/paypal-server-sdk';\n\nconst client = new Client({\n  clientCredentialsAuthCredentials: {\n    oAuthClientId: process.env.PAYPAL_CLIENT_ID!,\n    oAuthClientSecret: process.env.PAYPAL_CLIENT_SECRET!,\n  },\n  environment: Environment.Sandbox,\n});\n\nconst ordersController = new OrdersController(client);\n\n// orderId comes from query param ?token= on your returnUrl\nasync function capturePayPalOrder(orderId: string): Promise<void> {\n  const idempotencyKey = `capture-${orderId}-${Date.now()}`;\n\n  const { body: captureResult, statusCode } = await ordersController.ordersCapture({\n    id: orderId,\n    prefer: 'return=representation',\n    paypalRequestId: idempotencyKey, // Idempotency key for safe retries\n  });\n\n  if (statusCode !== 201) {\n    console.error('Capture failed with status:', statusCode);\n    throw new Error(`PayPal capture failed: ${statusCode}`);\n  }\n\n  const captureStatus = captureResult.status;\n  const captureId = captureResult.purchaseUnits?.[0]?.payments?.captures?.[0]?.id;\n\n  if (captureStatus === 'COMPLETED') {\n    console.log('Payment captured successfully. Capture ID:', captureId);\n    // Fulfill the order — provision access, send confirmation email, etc.\n    await fulfillOrder(orderId, captureId!);\n  } else {\n    console.warn('Unexpected capture status:', captureStatus);\n  }\n}\n\nasync function fulfillOrder(orderId: string, captureId: string) {\n  // Your order fulfillment logic here\n}",
+      "notes": "Always use a stable idempotency key (paypalRequestId) on capture requests so that network retries do not result in double captures. The capture ID in purchaseUnits[0].payments.captures[0].id is the PayPal transaction reference you should store for refunds and disputes."
+    }
+  ],
+  "gotchas": [
+    "PayPal's developer documentation is notoriously fragmented — there are 4+ different API versions (NVP, SOAP, v1, v2) and multiple SDKs. Always use the Orders API v2 and the @paypal/paypal-server-sdk. Ignore any tutorial using nvp, soap, or the deprecated REST SDK (@paypal/checkout-server-sdk).",
+    "PayPal accounts get frozen without warning for 'suspicious activity', often during legitimate high-volume periods. If PayPal is your only payment processor, this can stop your business. Always offer an alternative like Stripe.",
+    "PayPal's sandbox and production environments are completely separate tenants. Sandbox buyer accounts must be created manually in the Developer Dashboard — you cannot use real PayPal accounts for testing. Sandbox behavior sometimes differs from production.",
+    "The PayPal checkout button opens a popup window. Many ad blockers and privacy browsers (Brave, Firefox with strict mode) block popups by default, which breaks the checkout flow entirely for those users."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA for Commerce Platform",
+    "statusPageUrl": "https://www.paypal-status.com",
+    "notes": "Globally distributed with 400M+ users. API reliability is less consistent than Stripe — implement generous timeouts and retry logic. Historical outages have impacted checkout flows."
+  },
+  "qualityScore": 6,
+  "qualityJustification": "PayPal's ubiquity (400M+ accounts) makes it a necessary evil for many businesses — some customers won't buy without it. However, developer experience is poor (fragmented docs, inconsistent APIs), account freezes are a real risk, and the fee structure is complex. Use as a supplementary payment method alongside Stripe, not as a replacement.",
+  "alternatives": ["stripe", "razorpay"],
+  "complementary": ["stripe", "resend"],
+  "bestFor": "Offering PayPal as a supplementary checkout option for customers who prefer PayPal over credit cards — not recommended as a primary payment processor",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

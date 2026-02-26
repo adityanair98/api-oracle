@@ -1,0 +1,91 @@
+{
+  "name": "Square",
+  "slug": "square",
+  "category": "payments",
+  "subcategory": "payment-processing",
+  "website": "https://developer.squareup.com",
+  "description": "Square provides unified payment processing for both in-person (POS hardware) and online payments through a single API. Particularly strong for retail and restaurant businesses that need both physical terminals and an online store. The Developer API allows custom POS integrations, online checkout, and appointment booking.",
+  "useCases": [
+    {
+      "task": "Accept in-person payments with a POS integration",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build a unified online + in-person payment system",
+      "fit": "perfect"
+    },
+    {
+      "task": "Process online payments for a retail or restaurant business",
+      "fit": "good"
+    },
+    {
+      "task": "Integrate appointment booking with payment collection",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "oauth2",
+    "setupSteps": [
+      "Create a Square Developer account at developer.squareup.com",
+      "Create a new Application in the Developer Dashboard",
+      "For single-merchant use, copy your personal access token from the Credentials tab",
+      "For multi-merchant marketplace apps, implement the full OAuth 2.0 authorization code flow",
+      "Use Sandbox credentials and the Sandbox base URL for development",
+      "Switch to Production credentials when ready to go live"
+    ],
+    "envVarName": "SQUARE_ACCESS_TOKEN",
+    "codeSnippet": "import { Client, Environment } from 'square';\n\nconst client = new Client({\n  accessToken: process.env.SQUARE_ACCESS_TOKEN!,\n  environment: Environment.Sandbox, // Use Environment.Production for live\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free developer account with sandbox; in-person: 2.6% + $0.10/tap, dip, swipe; online: 2.9% + $0.30",
+    "startingPrice": "No monthly fee — pay per transaction only",
+    "costPer": "In-person: 2.6% + $0.10; Online: 2.9% + $0.30; Manually keyed: 3.5% + $0.15; Keyed-in card-not-present: 3.5% + $0.15",
+    "pricingUrl": "https://squareup.com/us/en/payments/our-rates"
+  },
+  "rateLimits": {
+    "tier": "standard",
+    "limit": "15 requests/second per application, 100 calls/minute for some endpoints",
+    "notes": "Rate limits vary by endpoint. Catalog and inventory endpoints have tighter limits. Use batch endpoints for bulk operations.",
+    "retryStrategy": "Respect Retry-After headers on 429 responses. Use batch endpoints (BatchUpsertCatalogObjects) to reduce API calls."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact square",
+    "importStatement": "import { Client, Environment } from 'square';",
+    "otherLanguages": ["python", "java", "php", "ruby"]
+  },
+  "codeExamples": [
+    {
+      "title": "Create a payment link for online checkout",
+      "language": "typescript",
+      "code": "import { Client, Environment } from 'square';\nimport { randomUUID } from 'crypto';\n\nconst client = new Client({\n  accessToken: process.env.SQUARE_ACCESS_TOKEN!,\n  environment: Environment.Sandbox,\n});\n\nconst { checkoutApi } = client;\n\n// Create a payment link for a quick sale\nconst { result, statusCode } = await checkoutApi.createPaymentLink({\n  idempotencyKey: randomUUID(),\n  quickPay: {\n    name: 'Pro Plan Subscription',\n    priceMoney: {\n      amount: BigInt(2000), // Amount in cents — must be BigInt in the Square SDK\n      currency: 'USD',\n    },\n    locationId: process.env.SQUARE_LOCATION_ID!,\n  },\n  checkoutOptions: {\n    redirectUrl: 'https://yourapp.com/checkout/success',\n    askForShippingAddress: false,\n  },\n  prePopulatedData: {\n    buyerEmail: 'customer@example.com',\n  },\n});\n\nif (result.errors && result.errors.length > 0) {\n  console.error('Square API errors:', result.errors);\n  throw new Error(result.errors.map((e) => e.detail).join(', '));\n}\n\nconst paymentLink = result.paymentLink;\nconsole.log('Payment link URL:', paymentLink?.url);\nconsole.log('Payment link ID:', paymentLink?.id);\n// Redirect the customer to paymentLink.url",
+      "notes": "Note that monetary amounts are BigInt in the Square TypeScript SDK, not number. Use BigInt(2000) for $20.00. JSON.stringify() will throw on BigInt — use String(amount) or a custom replacer when serializing. Always check result.errors before accessing result.paymentLink."
+    },
+    {
+      "title": "Create a catalog item with pricing",
+      "language": "typescript",
+      "code": "import { Client, Environment, CatalogObjectType } from 'square';\nimport { randomUUID } from 'crypto';\n\nconst client = new Client({\n  accessToken: process.env.SQUARE_ACCESS_TOKEN!,\n  environment: Environment.Sandbox,\n});\n\nconst { catalogApi } = client;\n\n// Create a catalog item (e.g., a menu item) with a price variation\nconst itemId = `#item-${randomUUID()}`;\nconst variationId = `#variation-${randomUUID()}`;\n\nconst { result, statusCode } = await catalogApi.upsertCatalogObject({\n  idempotencyKey: randomUUID(),\n  object: {\n    type: CatalogObjectType.Item,\n    id: itemId,\n    itemData: {\n      name: 'Espresso',\n      description: 'Double shot espresso',\n      variations: [\n        {\n          type: CatalogObjectType.ItemVariation,\n          id: variationId,\n          itemVariationData: {\n            itemId: itemId,\n            name: 'Regular',\n            pricingType: 'FIXED_PRICING',\n            priceMoney: {\n              amount: BigInt(350), // $3.50 — must be BigInt\n              currency: 'USD',\n            },\n            trackInventory: false,\n          },\n        },\n      ],\n    },\n  },\n});\n\nif (result.errors && result.errors.length > 0) {\n  console.error('Failed to create catalog item:', result.errors);\n  throw new Error(result.errors.map((e) => e.detail).join(', '));\n}\n\nconst createdItem = result.catalogObject;\nconsole.log('Created catalog item ID:', createdItem?.id);\nconsole.log('Variation ID:', createdItem?.itemData?.variations?.[0]?.id);",
+      "notes": "Catalog item IDs starting with # are client-assigned temporary IDs for batch operations — Square replaces them with server-assigned IDs in the response. Store the server-assigned IDs for future API calls. All price amounts are BigInt. The Square SDK does not throw on API errors — always inspect result.errors explicitly."
+    }
+  ],
+  "gotchas": [
+    "Square's availability is limited to US, Canada, UK, Australia, and Japan. If your business or customers are in other countries (EU, Asia outside Japan, Latin America), Square will not work. Use Stripe or Adyen instead.",
+    "Square uses BigInt for monetary amounts — all prices are in the smallest currency unit (cents) as a BigInt in the TypeScript SDK, not a number. JSON.stringify() does not serialize BigInt by default, causing runtime errors. Use String(amount) or a custom replacer.",
+    "The Square SDK uses a non-standard async pattern with response objects — it does not throw errors on API failures by default. Always check result.result and result.statusCode. Errors are in result.errors, not in a thrown exception.",
+    "Square's OAuth flow is designed for marketplace apps where you access multiple merchants' accounts. For single-merchant apps (your own Square account), use a personal access token — much simpler than implementing the full OAuth flow."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime",
+    "statusPageUrl": "https://issquareup.com",
+    "notes": "US-headquartered with global card processing infrastructure. In-person payment processing is handled locally on Square hardware, providing resilience even during partial API outages."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Best choice for businesses that need unified in-person and online payment processing under a single API and settlement. The hardware ecosystem (Terminal, Register) is polished. However, geographic limitations (US/CA/UK/AU/JP only) and the BigInt SDK quirks reduce its appeal for pure online-only businesses.",
+  "alternatives": ["stripe", "razorpay", "paypal"],
+  "complementary": ["resend", "supabase"],
+  "bestFor": "Businesses needing unified in-person and online payment processing — retail, restaurants, and appointment-based services in the US, Canada, UK, Australia, and Japan",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

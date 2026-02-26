@@ -52,8 +52,8 @@ describe("Scorer", () => {
     closeDb();
   });
 
-  it("loaded all 12 entries for testing", () => {
-    expect(allEntries.length).toBe(12);
+  it("loaded all 35 entries for testing", () => {
+    expect(allEntries.length).toBe(35);
   });
 
   it("'send transactional emails' ranks email APIs in top 3", () => {
@@ -182,5 +182,90 @@ describe("Scorer", () => {
       ["cloudinary", "uploadthing"].includes(s)
     );
     expect(hasStorageApi).toBe(true);
+  });
+
+  // --- New tests for expanded knowledge base (Session 2) ---
+
+  it("'add real-time chat to my app' ranks websocket/chat APIs in top results", () => {
+    const results = rankEntries(
+      allEntries,
+      "add real-time chat to my app",
+      undefined,
+      8
+    );
+    const topSlugs = results.slice(0, 8).map((r) => r.entry.slug);
+    const hasChatApi = topSlugs.some((s) =>
+      ["pusher", "ably", "stream-chat", "sendbird"].includes(s)
+    );
+    expect(hasChatApi).toBe(true);
+  });
+
+  it("'serverless Postgres database' ranks supabase or neon in top results", () => {
+    const results = rankEntries(
+      allEntries,
+      "serverless Postgres database for my Next.js app",
+      undefined,
+      6
+    );
+    const topSlugs = results.slice(0, 6).map((r) => r.entry.slug);
+    const hasDbApi = topSlugs.some((s) => ["supabase", "neon", "planetscale"].includes(s));
+    expect(hasDbApi).toBe(true);
+  });
+
+  it("'send push notifications to mobile users' ranks notification APIs highly", () => {
+    const results = rankEntries(
+      allEntries,
+      "send push notifications to mobile app users",
+      undefined,
+      6
+    );
+    const topSlugs = results.slice(0, 6).map((r) => r.entry.slug);
+    const hasNotifApi = topSlugs.some((s) =>
+      ["onesignal", "knock", "novu"].includes(s)
+    );
+    expect(hasNotifApi).toBe(true);
+  });
+
+  it("'stream video on demand' ranks mux highly", () => {
+    const results = rankEntries(
+      allEntries,
+      "stream video on demand for a course platform",
+      undefined,
+      35
+    );
+    const muxResult = results.find((r) => r.entry.slug === "mux");
+    expect(muxResult).toBeDefined();
+    const muxRank = results.findIndex((r) => r.entry.slug === "mux");
+    // mux should rank higher than email or auth APIs for video queries
+    const emailRank = results.findIndex((r) => r.entry.slug === "resend");
+    const authRank = results.findIndex((r) => r.entry.slug === "clerk");
+    expect(muxRank).toBeLessThan(emailRank);
+    expect(muxRank).toBeLessThan(authRank);
+  });
+
+  it("'track errors and exceptions in production' ranks sentry highly", () => {
+    const results = rankEntries(
+      allEntries,
+      "track errors and exceptions in production",
+      undefined,
+      6
+    );
+    const topSlugs = results.slice(0, 6).map((r) => r.entry.slug);
+    const hasMonitoringApi = topSlugs.some((s) => ["sentry", "posthog"].includes(s));
+    expect(hasMonitoringApi).toBe(true);
+  });
+
+  it("'generate images from text prompts' ranks replicate or openai highly", () => {
+    const results = rankEntries(
+      allEntries,
+      "generate images from text prompts using AI",
+      undefined,
+      6
+    );
+    const topSlugs = results.slice(0, 6).map((r) => r.entry.slug);
+    const hasAiApi = topSlugs.some((s) =>
+      ["replicate", "openai", "anthropic"].includes(s)
+    );
+    expect(hasAiApi).toBe(true);
   });
 });

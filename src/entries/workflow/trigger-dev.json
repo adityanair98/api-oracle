@@ -80,7 +80,7 @@
   },
   "qualityScore": 8,
   "qualityJustification": "The best open-source background job platform for TypeScript developers. Writing jobs as plain TypeScript functions with live log streaming and local dev mode is an outstanding DX. The v3 rewrite addressed major limitations of v2. Main drawback is a smaller ecosystem compared to Inngest and a steeper initial setup with the deploy step.",
-  "alternatives": ["inngest"],
+  "alternatives": ["inngest", "temporal"],
   "complementary": ["resend", "supabase", "neon", "stripe", "uploadthing"],
   "bestFor": "TypeScript-first background jobs and workflows with long-running task support and a great local development experience",
   "lastVerified": "2026-02-25",

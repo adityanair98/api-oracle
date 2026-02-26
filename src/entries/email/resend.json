@@ -80,7 +80,7 @@
   },
   "qualityScore": 9,
   "qualityJustification": "Best-in-class developer experience with the cleanest API in the email space. First-class TypeScript, excellent React Email integration, honest pricing, and fast onboarding. Slight deduction for limited free tier domain count and no bulk email support.",
-  "alternatives": ["sendgrid", "postmark"],
+  "alternatives": ["sendgrid", "postmark", "mailgun"],
   "complementary": ["clerk", "stripe"],
   "bestFor": "Developer-first transactional email with React Email templates and minimal setup",
   "lastVerified": "2026-02-25",

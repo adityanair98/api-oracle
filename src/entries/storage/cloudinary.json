@@ -84,7 +84,7 @@
   },
   "qualityScore": 8,
   "qualityJustification": "Best media management platform with unmatched transformation capabilities. URL-based transformations are genuinely magical. TypeScript SDK has some rough edges. Pricing model is complex and can surprise developers. Still the default choice for any app with significant media needs.",
-  "alternatives": ["uploadthing"],
+  "alternatives": ["uploadthing", "aws-s3", "cloudflare-r2", "digital-ocean-spaces", "imgix", "mux"],
   "complementary": ["openai", "anthropic"],
   "bestFor": "Image and video management with on-the-fly transformations, auto-optimization, and global CDN delivery",
   "lastVerified": "2026-02-25",

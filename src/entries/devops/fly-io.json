@@ -81,7 +81,7 @@
   },
   "qualityScore": 8,
   "qualityJustification": "Best option for globally distributed apps that need persistent state, WebSockets, or long-running processes. Docker-native deployment model gives maximum flexibility. The global Anycast network genuinely reduces latency for international users. Main friction: CLI-heavy workflow and no managed HTTPS cert automation as polished as Vercel.",
-  "alternatives": ["railway", "vercel", "netlify"],
+  "alternatives": ["railway", "vercel", "netlify", "cloudflare-workers"],
   "complementary": ["neon", "upstash", "supabase", "cloudflare-workers"],
   "bestFor": "Running containerized apps globally close to users, with persistent volumes and full control over the runtime environment",
   "lastVerified": "2026-02-25",

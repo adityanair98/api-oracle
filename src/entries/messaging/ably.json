@@ -85,7 +85,7 @@
   },
   "qualityScore": 8,
   "qualityJustification": "The most feature-complete real-time messaging platform with genuine delivery guarantees and message history. More complex than Pusher but offers stronger reliability primitives. Excellent TypeScript SDK. Free tier is the most generous in the category. Slightly higher complexity ceiling than Pusher.",
-  "alternatives": ["pusher"],
+  "alternatives": ["pusher", "stream-chat"],
   "complementary": ["supabase", "clerk", "stream-chat"],
   "bestFor": "Mission-critical real-time messaging with guaranteed delivery, message history, and presence — where dropped messages are unacceptable",
   "lastVerified": "2026-02-25",

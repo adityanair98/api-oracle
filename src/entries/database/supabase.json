@@ -85,7 +85,7 @@
   },
   "qualityScore": 9,
   "qualityJustification": "The best Firebase alternative for developers who prefer SQL. Excellent TypeScript SDK, generous free tier, and the combination of auth + storage + database + realtime in one platform reduces infrastructure complexity dramatically. RLS requirement is a feature, not a bug, but does add onboarding complexity.",
-  "alternatives": ["firebase", "neon", "planetscale"],
+  "alternatives": ["firebase", "neon", "planetscale", "upstash"],
   "complementary": ["resend", "stripe", "clerk"],
   "bestFor": "Full-stack Next.js/React apps needing a managed Postgres database with auth, storage, and real-time built in — the open-source Firebase alternative",
   "lastVerified": "2026-02-25",

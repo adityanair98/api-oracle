@@ -82,7 +82,7 @@
   },
   "qualityScore": 6,
   "qualityJustification": "PayPal's ubiquity (400M+ accounts) makes it a necessary evil for many businesses — some customers won't buy without it. However, developer experience is poor (fragmented docs, inconsistent APIs), account freezes are a real risk, and the fee structure is complex. Use as a supplementary payment method alongside Stripe, not as a replacement.",
-  "alternatives": ["stripe", "razorpay"],
+  "alternatives": ["stripe", "razorpay", "square"],
   "complementary": ["stripe", "resend"],
   "bestFor": "Offering PayPal as a supplementary checkout option for customers who prefer PayPal over credit cards — not recommended as a primary payment processor",
   "lastVerified": "2026-02-25",

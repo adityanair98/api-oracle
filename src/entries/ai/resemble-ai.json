@@ -79,7 +79,7 @@
   },
   "qualityScore": 7,
   "qualityJustification": "Best-in-class for voice cloning realism, especially from short audio samples. The API is well-designed and the Node SDK is usable. The main limitations are the pay-as-you-go pricing (no free tier) and the need to manage clip polling or webhooks for async generation. A solid choice for voice-heavy applications; compare with ElevenLabs for non-cloning TTS use cases.",
-  "alternatives": ["replicate"],
+  "alternatives": ["replicate", "eleven-labs"],
   "complementary": ["mux", "cloudinary", "openai", "deepgram"],
   "bestFor": "Custom voice cloning and high-realism AI speech generation for IVR, audiobooks, and branded voice experiences",
   "lastVerified": "2026-02-25",

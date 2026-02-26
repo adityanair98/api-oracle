@@ -86,7 +86,7 @@
   },
   "qualityScore": 9,
   "qualityJustification": "Most capable models available, largest ecosystem, best-in-class TypeScript SDK, and the most documented AI API. Slight deductions for no free tier, occasional reliability issues, and usage-based costs that can surprise teams without monitoring.",
-  "alternatives": ["anthropic"],
+  "alternatives": ["anthropic", "deepgram", "replicate", "stability-ai"],
   "complementary": ["uploadthing", "cloudinary"],
   "bestFor": "General-purpose LLM tasks including chat, reasoning, embeddings, and image generation with the broadest model selection",
   "lastVerified": "2026-02-25",

@@ -79,7 +79,7 @@
   },
   "qualityScore": 8,
   "qualityJustification": "Excellent developer experience — works within your existing framework (Next.js, Express, Fastify) without a separate worker process. Step functions with automatic memoization and per-step retries are genuinely powerful for complex workflows. The local dev server with no account required is a standout feature. Slight drawback: free tier log retention is too short for production debugging.",
-  "alternatives": ["trigger-dev"],
+  "alternatives": ["trigger-dev", "temporal"],
   "complementary": ["vercel", "resend", "stripe", "supabase", "neon"],
   "bestFor": "Event-driven background jobs and multi-step workflows that run within your existing serverless or server infrastructure",
   "lastVerified": "2026-02-25",

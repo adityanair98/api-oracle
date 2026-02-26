@@ -86,7 +86,7 @@
   },
   "qualityScore": 9,
   "qualityJustification": "Claude models lead on reasoning, instruction-following, and long-context tasks. Excellent TypeScript SDK, 200k context window, and strong safety properties. Pricing is competitive. Slight deductions vs OpenAI for smaller ecosystem and fewer modalities (no image gen).",
-  "alternatives": ["openai"],
+  "alternatives": ["openai", "replicate"],
   "complementary": ["uploadthing", "cloudinary"],
   "bestFor": "Complex reasoning, long-document analysis, code generation, and AI agents with tools — especially where instruction-following quality matters",
   "lastVerified": "2026-02-25",

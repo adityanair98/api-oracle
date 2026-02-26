@@ -87,7 +87,7 @@
   },
   "qualityScore": 10,
   "qualityJustification": "The gold standard for payment APIs. Unmatched documentation, TypeScript support that is genuinely excellent, comprehensive feature set (subscriptions, marketplaces, Connect, billing), and a test mode that mirrors production perfectly. The only reason to use something else is geographic availability.",
-  "alternatives": ["razorpay"],
+  "alternatives": ["razorpay", "lemonsqueezy", "paddle", "paypal", "square"],
   "complementary": ["resend", "clerk", "auth0"],
   "bestFor": "Online payment processing for SaaS subscriptions, e-commerce, and marketplaces in the US, EU, and most global markets",
   "lastVerified": "2026-02-25",

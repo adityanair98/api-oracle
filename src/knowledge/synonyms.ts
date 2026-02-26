@@ -122,6 +122,83 @@ export const SYNONYM_GROUPS: readonly string[][] = [
     "image", "resize", "crop", "optimize", "transform", "cdn", "imgix",
     "thumbnail", "watermark", "compress",
   ],
+
+  // DevOps / Deployment / Hosting
+  [
+    "deploy", "deployment", "host", "hosting", "server", "cloud",
+    "devops", "ci", "cd", "pipeline", "container", "docker", "kubernetes",
+    "vercel", "netlify", "railway", "heroku", "vps", "platform",
+    "ship", "launch", "publish", "paas", "infrastructure",
+  ],
+
+  // Edge / Serverless Compute
+  [
+    "edge", "serverless", "function", "lambda", "worker", "cloudflare",
+    "edge compute", "edge function", "faas", "compute",
+  ],
+
+  // Object Storage / S3
+  [
+    "s3", "bucket", "object storage", "blob storage", "r2",
+    "file storage", "static files", "presigned", "presigned url",
+  ],
+
+  // Commerce / eCommerce
+  [
+    "ecommerce", "e-commerce", "shop", "store", "storefront", "product",
+    "cart", "order", "checkout", "inventory", "catalog", "shopify",
+    "merchant", "sell", "digital products",
+  ],
+
+  // CMS / Content Management
+  [
+    "cms", "content", "content management", "headless cms", "blog",
+    "article", "page", "rich text", "editor", "contentful", "sanity",
+    "strapi", "markdown", "wysiwyg", "editorial",
+  ],
+
+  // Forms / Surveys
+  [
+    "form", "survey", "questionnaire", "typeform", "lead capture",
+    "quiz", "feedback", "response", "submission", "field", "input",
+    "contact form", "onboarding form",
+  ],
+
+  // Scheduling / Calendar / Booking
+  [
+    "schedule", "scheduling", "calendar", "booking", "appointment",
+    "meeting", "calendly", "cal.com", "availability", "timeslot",
+    "slot", "book a call", "event scheduling",
+  ],
+
+  // Security / Vulnerability / Protection
+  [
+    "security", "vulnerability", "cve", "sast", "dast", "scan",
+    "firewall", "waf", "rate limit", "ddos", "bot", "abuse", "snyk",
+    "arcjet", "pen test", "pentest", "owasp", "secret scanning",
+  ],
+
+  // Background Jobs / Queues / Workflows
+  [
+    "background job", "job queue", "queue", "worker", "cron", "scheduled job",
+    "task", "async", "workflow", "trigger", "inngest", "temporal",
+    "job processing", "event-driven", "fan-out", "batch",
+  ],
+
+  // Integration / Automation / OAuth connectors
+  [
+    "integration", "connect", "connector", "automation", "zapier",
+    "oauth", "third-party", "saas integration", "webhook",
+    "no-code", "low-code", "nango", "token refresh",
+  ],
+
+  // Testing / QA / Monitoring
+  [
+    "test", "testing", "qa", "quality assurance", "browser test",
+    "e2e", "end-to-end", "selenium", "playwright", "puppeteer",
+    "synthetic", "uptime monitor", "checkly", "browserstack",
+    "cross-browser", "regression",
+  ],
 ] as const;
 
 // Build a lookup: term → all terms in its group (for fast expansion)
@@ -218,11 +295,24 @@ const SERVERLESS_PATTERNS = [
 
 // Known API names to slugs for reference extraction
 const API_NAME_TO_SLUG: Record<string, string> = {
+  // Original entries
   firebase: "firebase", supabase: "supabase", stripe: "stripe",
   sendgrid: "sendgrid", twilio: "twilio", algolia: "algolia",
   auth0: "auth0", clerk: "clerk", cloudinary: "cloudinary",
   openai: "openai", anthropic: "anthropic", sentry: "sentry",
   pusher: "pusher", mapbox: "mapbox", "google maps": "google-maps",
+  // Session 4 additions
+  vercel: "vercel", netlify: "netlify", railway: "railway",
+  "fly.io": "fly-io", "aws s3": "aws-s3", "cloudflare r2": "cloudflare-r2",
+  "cloudflare workers": "cloudflare-workers", paddle: "paddle",
+  lemonsqueezy: "lemonsqueezy", paypal: "paypal", shopify: "shopify-api",
+  medusa: "medusa", contentful: "contentful", sanity: "sanity",
+  strapi: "strapi", typeform: "typeform", calendly: "calendly",
+  "cal.com": "cal-com", browserstack: "browserstack", checkly: "checkly",
+  snyk: "snyk", arcjet: "arcjet", "stability ai": "stability-ai",
+  elevenlabs: "eleven-labs", "eleven labs": "eleven-labs",
+  mailgun: "mailgun", "trigger.dev": "trigger-dev", inngest: "inngest",
+  temporal: "temporal", zapier: "zapier", nango: "nango",
 };
 
 /** Extract modifier intent from a query */
@@ -367,6 +457,98 @@ const CATEGORY_DETECTORS: CategoryPattern[] = [
     patterns: [
       /\bsearch\b/i, /\bfull.?text\b/i, /\bautocomplete\b/i,
       /\bsearch engine\b/i, /\balgolia\b/i, /\bindex.*search\b/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "devops",
+    patterns: [
+      /\bdeploy(ment)?\b/i, /\bhost(ing)?\b/i, /\bvps\b/i,
+      /\bpaas\b/i, /\bcontainer\b/i, /\bdocker\b/i,
+      /\bci\/cd\b/i, /\bpipeline\b/i, /\bvercel\b/i, /\bnetlify\b/i,
+      /\brailway\b/i, /\bfly\.io\b/i, /\bheroku\b/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "infrastructure",
+    patterns: [
+      /\bobject storage\b/i, /\bfile storage\b/i, /\bs3\b/i,
+      /\bbucket\b/i, /\bedge compute\b/i, /\bcloudflare workers\b/i,
+      /\bcdn\b/i, /\bblob\b/i, /\bpresigned url\b/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "commerce",
+    patterns: [
+      /\becommerce\b/i, /\be-commerce\b/i, /\bheadless.*shop\b/i,
+      /\bstorefront\b/i, /\bproduct catalog\b/i, /\bcart\b/i,
+      /\bdigital.*product\b/i, /\bsell.*online\b/i, /\bshopify\b/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "cms",
+    patterns: [
+      /\bcms\b/i, /\bcontent management\b/i, /\bheadless cms\b/i,
+      /\bblog\b/i, /\beditorial\b/i, /\brich text\b/i,
+      /\bsanity\b/i, /\bcontentful\b/i, /\bstrapi\b/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "forms",
+    patterns: [
+      /\bform\b/i, /\bsurvey\b/i, /\bquestionnaire\b/i,
+      /\blead capture\b/i, /\bfeedback form\b/i, /\btypeform\b/i,
+      /\bform submission\b/i, /\bcontact form\b/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "scheduling",
+    patterns: [
+      /\bschedul(e|ing)\b/i, /\bbooking\b/i, /\bappointment\b/i,
+      /\bcalendar\b/i, /\bmeeting.*book\b/i, /\bcalendly\b/i,
+      /\bbook a call\b/i, /\btime.*slot\b/i, /\bavailability\b/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "security",
+    patterns: [
+      /\bsecurity\b/i, /\bvulnerabilit/i, /\bwaf\b/i, /\bfirewall\b/i,
+      /\brate.?limit\b/i, /\bddos\b/i, /\bbot protection\b/i,
+      /\bsast\b/i, /\bsnyk\b/i, /\barcjet\b/i, /\bscan.*dep/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "workflow",
+    patterns: [
+      /\bbackground job\b/i, /\bjob queue\b/i, /\bqueue\b/i,
+      /\bcron\b/i, /\bscheduled task\b/i, /\bworkflow engine\b/i,
+      /\btrigger\.dev\b/i, /\binngest\b/i, /\btemporal\b/i,
+      /\bfan.?out\b/i, /\bworker.*task\b/i, /\basync.*process\b/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "integration",
+    patterns: [
+      /\bintegration\b/i, /\bno.?code.*automat/i, /\bzapier\b/i,
+      /\bnango\b/i, /\boauth.*connect\b/i, /\bsaas.*connect\b/i,
+      /\bconnect.*third.?party\b/i, /\bwebhook.*forward\b/i,
+    ],
+    weight: 0.4,
+  },
+  {
+    category: "testing",
+    patterns: [
+      /\bcross.?browser.*test\b/i, /\be2e.*test\b/i, /\bend.?to.?end.*test\b/i,
+      /\bqa\b/i, /\bsynth(etic)?\b/i, /\buptime.*monitor\b/i,
+      /\bbrowserstack\b/i, /\bcheckly\b/i, /\bplaywright\b/i,
     ],
     weight: 0.4,
   },

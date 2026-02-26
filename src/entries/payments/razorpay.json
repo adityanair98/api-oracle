@@ -76,7 +76,7 @@
   },
   "qualityScore": 8,
   "qualityJustification": "The best and most comprehensive solution for Indian payments with excellent UPI support. TypeScript SDK is solid. Primary limitation is geographic scope — this is an India-first solution. The KYC requirement adds onboarding time.",
-  "alternatives": ["stripe"],
+  "alternatives": ["stripe", "paypal", "square"],
   "complementary": ["resend", "clerk"],
   "bestFor": "Payments for Indian consumers — UPI, Netbanking, wallets, and local cards all in one API",
   "lastVerified": "2026-02-25",

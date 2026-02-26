@@ -60,7 +60,7 @@ describe("TfIdfEngine", () => {
   it("builds from entries and reports correct size", () => {
     engine.build(allEntries);
     expect(engine.isBuilt).toBe(true);
-    expect(engine.size).toBe(35);
+    expect(engine.size).toBe(68);
   });
 
   it("returns empty array before build", () => {
@@ -136,7 +136,7 @@ describe("TfIdfEngine", () => {
     expect(engine.isBuilt).toBe(true);
     engine.build(allEntries); // rebuild
     expect(engine.isBuilt).toBe(true);
-    expect(engine.size).toBe(35);
+    expect(engine.size).toBe(68);
   });
 });
 

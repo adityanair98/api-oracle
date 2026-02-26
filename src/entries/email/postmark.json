@@ -82,7 +82,7 @@
   },
   "qualityScore": 8,
   "qualityJustification": "Best deliverability in the industry with excellent TypeScript SDK and honest, transparent practices. Slightly more expensive and more complex setup than Resend. The strict separation of transactional/marketing streams is a feature, not a bug.",
-  "alternatives": ["resend", "sendgrid"],
+  "alternatives": ["resend", "sendgrid", "mailgun"],
   "complementary": ["stripe", "clerk"],
   "bestFor": "Transactional email where deliverability is the #1 priority and cost-per-email is secondary",
   "lastVerified": "2026-02-25",

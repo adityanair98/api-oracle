@@ -1,0 +1,84 @@
+{
+  "name": "Sentry",
+  "slug": "sentry",
+  "category": "analytics",
+  "subcategory": "error-monitoring",
+  "website": "https://sentry.io",
+  "description": "Sentry is the industry-standard error tracking and application performance monitoring platform. It automatically captures unhandled exceptions, tracks performance regressions, and provides full stack traces with source maps — giving developers the context needed to reproduce and fix bugs fast. Available as cloud SaaS or self-hosted.",
+  "useCases": [
+    {
+      "task": "Capture and track unhandled errors and exceptions in production",
+      "fit": "perfect"
+    },
+    {
+      "task": "Monitor application performance and identify slow API calls or transactions",
+      "fit": "perfect"
+    },
+    {
+      "task": "Set up alerts when error rates spike or new issues appear",
+      "fit": "perfect"
+    },
+    {
+      "task": "Debug production issues with full stack traces and breadcrumbs",
+      "fit": "perfect"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at sentry.io and create a new project",
+      "Select your platform (Node.js, React, Next.js, etc.)",
+      "Copy the DSN (Data Source Name) from the project settings",
+      "Install the Sentry SDK and initialize with the DSN",
+      "Set SENTRY_DSN environment variable"
+    ],
+    "envVarName": "SENTRY_DSN",
+    "codeSnippet": "import * as Sentry from '@sentry/node';\nSentry.init({ dsn: process.env.SENTRY_DSN! });"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "5,000 errors/month, 10,000 performance transactions/month, 1 user",
+    "startingPrice": "$26/month (Team plan) for 50,000 errors and additional team members",
+    "costPer": "Errors: $0.00029/error above quota; Performance: $0.0001/transaction",
+    "pricingUrl": "https://sentry.io/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "5,000 events/month; ingest rate limited based on plan",
+    "notes": "Sentry silently drops events once quota is exhausted unless you configure rate limiting or purchase more quota. Set up quota alerts in the dashboard.",
+    "retryStrategy": "Sentry SDK handles retries internally. If quota is exhausted, events are dropped server-side. Monitor quota usage via the Sentry dashboard stats API."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @sentry/node @sentry/profiling-node",
+    "importStatement": "import * as Sentry from '@sentry/node';",
+    "otherLanguages": ["python", "ruby", "java", "go", "php", "react", "vue", "angular", "nextjs"]
+  },
+  "codeExamples": [
+    {
+      "title": "Initialize Sentry in a Node.js/Express app",
+      "language": "typescript",
+      "code": "import * as Sentry from '@sentry/node';\nimport { nodeProfilingIntegration } from '@sentry/profiling-node';\nimport express from 'express';\n\n// IMPORTANT: Initialize Sentry BEFORE any other imports/setup\nSentry.init({\n  dsn: process.env.SENTRY_DSN!,\n  environment: process.env.NODE_ENV ?? 'development',\n  integrations: [nodeProfilingIntegration()],\n  tracesSampleRate: 1.0,  // Capture 100% of transactions (reduce in prod)\n  profilesSampleRate: 1.0,\n});\n\nconst app = express();\n\n// Add routes here...\n\n// IMPORTANT: Sentry error handler must be AFTER routes and BEFORE other error handlers\nSentry.setupExpressErrorHandler(app);\n\n// Example: manually capture an error with context\ntry {\n  const result = await riskyOperation();\n} catch (error) {\n  Sentry.captureException(error, {\n    extra: { userId: 'user-123', operation: 'riskyOperation' },\n    tags: { feature: 'checkout' },\n  });\n  throw error;\n}",
+      "notes": "Sentry MUST be initialized before any other code. In Next.js, use sentry.server.config.ts and the Sentry Next.js wizard (`npx @sentry/wizard@latest -i nextjs`). The tracesSampleRate controls APM cost — set to 0.1-0.2 in production."
+    }
+  ],
+  "gotchas": [
+    "Sentry must be initialized before any other imports — especially in Next.js where the initialization order matters. Using the Sentry wizard (`npx @sentry/wizard@latest -i nextjs`) handles this automatically and is strongly recommended over manual setup.",
+    "The free plan quota (5,000 errors/month) is exhausted quickly in active development if you're also capturing dev/staging errors. Always filter by environment and set up separate DSNs for dev vs. production.",
+    "Source maps are required for readable stack traces in minified/compiled code. Without them, you'll see `bundle.js:1:45820` instead of actual file/line numbers. Configure source map upload in your build pipeline.",
+    "Sentry's performance monitoring (tracing) adds overhead to every request. Set tracesSampleRate to 0.1 or lower in production, not 1.0, unless you're on a paid plan with sufficient transaction quota."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA on Business and above",
+    "statusPageUrl": "https://status.sentry.io",
+    "notes": "Sentry is battle-tested at scale, used by companies like GitHub, Cloudflare, and Disney. The SDK is designed to be non-blocking and fail silently to avoid impacting your application."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "The undisputed standard for error tracking. Exceptional SDK quality across every major language and framework. Source map support, breadcrumbs, performance monitoring, and release tracking are all best-in-class. The free tier is limiting for teams but sufficient for solo projects. Near-zero setup friction with the wizard.",
+  "alternatives": ["posthog"],
+  "complementary": ["posthog", "supabase", "vercel"],
+  "bestFor": "Production error tracking and performance monitoring — the default choice for any application that needs to catch and debug runtime errors",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

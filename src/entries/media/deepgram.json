@@ -1,0 +1,84 @@
+{
+  "name": "Deepgram",
+  "slug": "deepgram",
+  "category": "media",
+  "subcategory": "speech-to-text",
+  "website": "https://deepgram.com",
+  "description": "Deepgram is a speech-to-text AI platform providing real-time and batch audio transcription with industry-leading accuracy, low latency, and competitive pricing. It supports 30+ languages, speaker diarization, punctuation, and custom vocabulary — making it the preferred choice over OpenAI Whisper for production audio transcription.",
+  "useCases": [
+    {
+      "task": "Transcribe audio and video files to text",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add real-time speech-to-text to a voice application",
+      "fit": "perfect"
+    },
+    {
+      "task": "Transcribe meeting recordings with speaker identification",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add voice commands to a web or mobile application",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at deepgram.com",
+      "Go to the console and create a new API Key",
+      "Set the permissions (Member access is sufficient for most use cases)",
+      "Copy the API key immediately (it is only shown once)",
+      "Set DEEPGRAM_API_KEY environment variable"
+    ],
+    "envVarName": "DEEPGRAM_API_KEY",
+    "codeSnippet": "import { createClient } from '@deepgram/sdk';\nconst deepgram = createClient(process.env.DEEPGRAM_API_KEY!);"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "$200 in free credits on signup (no expiry on Nova models)",
+    "startingPrice": "$0.0043 per minute (Nova-2 model, pre-recorded)",
+    "costPer": "$0.0043/min pre-recorded; $0.0059/min real-time streaming; whisper model at $0.0048/min",
+    "pricingUrl": "https://deepgram.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "default",
+    "limit": "100 concurrent connections; 100 requests/minute for pre-recorded",
+    "notes": "Rate limits are generous for most applications. Real-time connections count against concurrent limit. Contact support for higher limits.",
+    "retryStrategy": "Implement exponential backoff for 429 responses. For long audio files, consider chunking into segments if timeouts occur."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @deepgram/sdk",
+    "importStatement": "import { createClient } from '@deepgram/sdk';",
+    "otherLanguages": ["python", "go", "dotnet", "rust"]
+  },
+  "codeExamples": [
+    {
+      "title": "Transcribe an audio file",
+      "language": "typescript",
+      "code": "import { createClient } from '@deepgram/sdk';\nimport { readFileSync } from 'fs';\n\nconst deepgram = createClient(process.env.DEEPGRAM_API_KEY!);\n\n// Transcribe from a URL\nconst { result, error } = await deepgram.listen.prerecorded.transcribeUrl(\n  { url: 'https://example.com/meeting.mp3' },\n  {\n    model: 'nova-2',\n    smart_format: true,      // Add punctuation and capitalization\n    diarize: true,           // Identify different speakers\n    paragraphs: true,        // Group sentences into paragraphs\n    language: 'en',\n  }\n);\n\nif (error) throw new Error(error.message);\n\nconst transcript = result.results.channels[0]?.alternatives[0]?.transcript;\nconsole.log('Transcript:', transcript);\n\n// Speaker-labeled output\nfor (const word of result.results.channels[0]?.alternatives[0]?.words ?? []) {\n  console.log(`[Speaker ${word.speaker}] ${word.word}`);\n}",
+      "notes": "Use 'nova-2' model for best accuracy. smart_format adds punctuation automatically. diarize splits transcript by speaker — useful for meeting notes."
+    }
+  ],
+  "gotchas": [
+    "API keys are shown only once at creation. If you lose it, you must create a new one. Always save it to your password manager immediately after creation.",
+    "Audio files must be accessible via URL or uploaded as binary. Files on localhost are not accessible — use a public URL or the transcribeFile() method with a Buffer for local files.",
+    "The diarize option (speaker identification) adds latency to responses. For real-time transcription, skip diarization unless you specifically need it.",
+    "Deepgram's WebSocket real-time API requires careful connection management — you must keep the connection alive with KeepAlive messages and handle reconnection logic."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA on paid plans",
+    "statusPageUrl": "https://status.deepgram.com",
+    "notes": "Deepgram processes billions of minutes of audio. Global infrastructure with low latency. Significantly faster than batch-only alternatives."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best speech-to-text API for production use with better accuracy than OpenAI Whisper at lower latency and competitive pricing. Excellent TypeScript SDK. $200 free credit is genuinely useful. Slightly less mainstream than Whisper, so fewer community examples.",
+  "alternatives": ["openai"],
+  "complementary": ["openai", "anthropic", "mux"],
+  "bestFor": "Production speech-to-text transcription with speaker diarization, real-time streaming, and better accuracy than Whisper at competitive prices",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

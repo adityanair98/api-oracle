@@ -1,0 +1,88 @@
+{
+  "name": "PostHog",
+  "slug": "posthog",
+  "category": "analytics",
+  "subcategory": "product-analytics",
+  "website": "https://posthog.com",
+  "description": "PostHog is an open-source product analytics platform combining event tracking, funnels, session recording, feature flags, and A/B testing in a single tool. It can be self-hosted for full data ownership or used as a managed cloud service, making it the preferred choice for privacy-conscious teams and developers who want full control over their analytics stack.",
+  "useCases": [
+    {
+      "task": "Track user events and build product analytics funnels",
+      "fit": "perfect"
+    },
+    {
+      "task": "Record user sessions to understand how users interact with your UI",
+      "fit": "perfect"
+    },
+    {
+      "task": "Roll out features gradually with feature flags",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run A/B tests to measure feature impact",
+      "fit": "perfect"
+    },
+    {
+      "task": "Self-host analytics for GDPR compliance or data residency requirements",
+      "fit": "perfect"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at posthog.com (or self-host via Docker/Kubernetes)",
+      "Create a new project in the PostHog dashboard",
+      "Copy your Project API Key from Project Settings > Project API Key",
+      "Install the PostHog SDK for your platform",
+      "Set POSTHOG_API_KEY and POSTHOG_HOST environment variables"
+    ],
+    "envVarName": "POSTHOG_API_KEY",
+    "codeSnippet": "import { PostHog } from 'posthog-node';\nconst client = new PostHog(process.env.POSTHOG_API_KEY!, {\n  host: process.env.POSTHOG_HOST ?? 'https://us.i.posthog.com',\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "1,000,000 events/month free, unlimited projects, session recordings included",
+    "startingPrice": "Pay-as-you-go after 1M events: $0.00005/event (very gradual scale)",
+    "costPer": "$0.00005 per event above 1M/month; session recordings: $0.005/recording above 5,000 free",
+    "pricingUrl": "https://posthog.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "all tiers",
+    "limit": "No documented API rate limit for event ingestion; batch events to be safe",
+    "notes": "PostHog is designed for high-volume event ingestion. Use the SDK's built-in batching (default batch size: 20 events, flush interval: 10s) rather than sending individual events.",
+    "retryStrategy": "PostHog Node SDK handles retries automatically. For self-hosted setups, events queue locally and retry on network failures."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact posthog-node",
+    "importStatement": "import { PostHog } from 'posthog-node';",
+    "otherLanguages": ["python", "ruby", "go", "php", "java", "ios", "android", "react-native", "flutter"]
+  },
+  "codeExamples": [
+    {
+      "title": "Track events and identify users (server-side)",
+      "language": "typescript",
+      "code": "import { PostHog } from 'posthog-node';\n\nconst posthog = new PostHog(process.env.POSTHOG_API_KEY!, {\n  host: process.env.POSTHOG_HOST ?? 'https://us.i.posthog.com',\n  flushAt: 20,    // batch size before auto-flush\n  flushInterval: 10000, // ms between auto-flushes\n});\n\n// Identify a user with properties\nposthog.identify({\n  distinctId: 'user-123',\n  properties: {\n    email: 'jane@example.com',\n    plan: 'pro',\n    signedUpAt: '2026-01-15',\n  },\n});\n\n// Track an event\nposthog.capture({\n  distinctId: 'user-123',\n  event: 'checkout_completed',\n  properties: {\n    orderId: 'order_456',\n    totalAmount: 99.99,\n    currency: 'USD',\n    itemCount: 3,\n  },\n});\n\n// Check a feature flag\nconst flagEnabled = await posthog.isFeatureEnabled('new-checkout-flow', 'user-123');\nif (flagEnabled) {\n  // show new experience\n}\n\n// IMPORTANT: flush before process exits (e.g., in serverless)\nawait posthog.shutdown();",
+      "notes": "Always call posthog.shutdown() before the process exits (e.g., in serverless/edge functions) to flush the event queue. In long-running servers, the SDK auto-flushes on interval. Use distinctId consistently — it ties all events to one user."
+    }
+  ],
+  "gotchas": [
+    "PostHog Node SDK batches events and flushes asynchronously — in serverless functions (Vercel, AWS Lambda), the process may exit before events are sent. Always call `await posthog.shutdown()` at the end of serverless handlers, or use `await posthog.flushAsync()`.",
+    "The free 1M events/month sounds huge, but session recordings count separately and can add up quickly if you have many users. Session recordings are $0.005 each above 5,000/month — audit your recording settings and consider sampling.",
+    "Feature flags are evaluated server-side by calling the PostHog API on each request unless you use local evaluation. Enable local evaluation (requires downloading the flag config) to avoid latency on every request.",
+    "Self-hosting PostHog requires significant infrastructure (ClickHouse, Kafka, Redis, PostgreSQL). The all-in-one Docker Compose setup works for small scale but needs ~4GB RAM minimum. The cloud version is much easier to start with."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime on cloud; self-hosted depends on your infrastructure",
+    "statusPageUrl": "https://status.posthog.com",
+    "notes": "PostHog cloud (US and EU regions) has strong reliability. The SDK is designed to fail silently — analytics errors should never break your application."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best product analytics platform with the most generous free tier (1M events/month). The combination of event tracking, session recording, feature flags, and A/B testing in one SDK is a genuine differentiator. Open-source and self-hostable for data control. The only drawbacks are self-hosting complexity and the serverless flush gotcha.",
+  "alternatives": ["sentry"],
+  "complementary": ["sentry", "clerk", "supabase", "vercel"],
+  "bestFor": "Product analytics, feature flags, and session recording with a generous free tier and optional self-hosting for data ownership",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

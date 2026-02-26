@@ -1,0 +1,84 @@
+{
+  "name": "OneSignal",
+  "slug": "onesignal",
+  "category": "notifications",
+  "subcategory": "push-notifications",
+  "website": "https://onesignal.com",
+  "description": "OneSignal is the most widely used push notification service, supporting web push, iOS, Android, email, and SMS from a single platform. It provides a free tier that is genuinely production-grade, making it the default choice for apps needing multi-channel notification delivery without infrastructure complexity.",
+  "useCases": [
+    {
+      "task": "Send push notifications to mobile app users (iOS and Android)",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send web push notifications to browser users",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send multi-channel notifications (push + email + SMS)",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send targeted notifications based on user segments",
+      "fit": "perfect"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at onesignal.com",
+      "Create a new app in the dashboard",
+      "Configure your platforms (iOS/Android/Web) with your APNs/FCM credentials",
+      "Go to Settings > Keys & IDs to find your App ID and REST API Key",
+      "Set ONESIGNAL_APP_ID and ONESIGNAL_API_KEY environment variables"
+    ],
+    "envVarName": "ONESIGNAL_API_KEY",
+    "codeSnippet": "// Server-side notification sending\nconst response = await fetch('https://onesignal.com/api/v1/notifications', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    'Authorization': `Basic ${process.env.ONESIGNAL_API_KEY}`,\n  },\n  body: JSON.stringify(notification),\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Unlimited subscribers, unlimited notifications, unlimited apps (free plan)",
+    "startingPrice": "$9/month for Growth plan with advanced features",
+    "costPer": "Free plan covers core push notifications; paid plans add segmentation, analytics, A/B testing",
+    "pricingUrl": "https://onesignal.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "No documented notification rate limit; API requests: 2,500 per hour",
+    "notes": "OneSignal batches notifications internally. For large sends, use segments rather than individual API calls.",
+    "retryStrategy": "Implement exponential backoff for 429 and 5xx API responses. OneSignal handles delivery retries internally."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @onesignal/node-onesignal",
+    "importStatement": "import * as OneSignal from '@onesignal/node-onesignal';",
+    "otherLanguages": ["python", "ruby", "java", "php", "csharp", "swift", "android"]
+  },
+  "codeExamples": [
+    {
+      "title": "Send a push notification to specific users",
+      "language": "typescript",
+      "code": "import * as OneSignal from '@onesignal/node-onesignal';\n\nconst configuration = OneSignal.createConfiguration({\n  restApiKey: process.env.ONESIGNAL_API_KEY!,\n});\nconst client = new OneSignal.DefaultApi(configuration);\n\nconst notification = new OneSignal.Notification();\nnotification.app_id = process.env.ONESIGNAL_APP_ID!;\nnotification.contents = { en: 'Your order has shipped! Track it now.' };\nnotification.headings = { en: 'Order Update' };\n\n// Send to specific users by external ID\nnotification.include_aliases = {\n  external_id: ['user-123', 'user-456'],\n};\nnotification.target_channel = 'push';\n\nconst response = await client.createNotification(notification);\nconsole.log('Notification ID:', response.id);\nconsole.log('Recipients:', response.recipients);",
+      "notes": "Use external_id to identify users by your own user ID (set when registering devices). This avoids managing OneSignal's player_id internally."
+    }
+  ],
+  "gotchas": [
+    "Setting up push notifications requires configuring APNs certificates (iOS) and FCM keys (Android) in the OneSignal dashboard. This is the most time-consuming part of setup and requires Apple Developer account access.",
+    "Web push notifications require HTTPS. You cannot test web push on localhost — use ngrok, Vercel preview deployments, or a staging environment with HTTPS.",
+    "OneSignal's free plan stores only 90 days of notification history. If you need longer retention for analytics or audit logs, export data regularly or upgrade to a paid plan.",
+    "Device tokens (player IDs) can become stale if users uninstall and reinstall the app. Clean up invalid tokens from your database using OneSignal's device deletion API."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA on paid plans",
+    "statusPageUrl": "https://status.onesignal.com",
+    "notes": "OneSignal processes billions of notifications per day. Very high reliability with global infrastructure."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best push notification service with the most generous free tier in the category — truly unlimited subscribers and notifications at no cost. Multi-channel support (push + email + SMS) from one platform is convenient. Setup complexity for mobile (APNs/FCM) is unavoidable industry-wide.",
+  "alternatives": ["knock", "novu"],
+  "complementary": ["twilio", "resend", "clerk"],
+  "bestFor": "Mobile and web push notifications with an unlimited free tier — ideal for apps that need multi-channel (push + email + SMS) from a single platform",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

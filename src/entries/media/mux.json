@@ -1,0 +1,94 @@
+{
+  "name": "Mux",
+  "slug": "mux",
+  "category": "media",
+  "subcategory": "video-streaming",
+  "website": "https://www.mux.com",
+  "description": "Mux is a developer-first video API platform for uploading, storing, encoding, and streaming video. It handles adaptive bitrate streaming (HLS), video-on-demand, live streaming, and real-time video — making it the standard choice for course platforms, social video, and any application that needs reliable video delivery at scale.",
+  "useCases": [
+    {
+      "task": "Stream video-on-demand content to users globally",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build a course platform with video lessons",
+      "fit": "perfect"
+    },
+    {
+      "task": "Upload and process user-generated video content",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add live streaming to an application",
+      "fit": "perfect"
+    },
+    {
+      "task": "Generate video thumbnails and previews",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "basic_auth",
+    "setupSteps": [
+      "Sign up at mux.com",
+      "Go to Settings > Access Tokens",
+      "Create a new access token with Full Access or Environment-specific permissions",
+      "Copy the Token ID and Token Secret",
+      "Set MUX_TOKEN_ID and MUX_TOKEN_SECRET environment variables"
+    ],
+    "envVarName": "MUX_TOKEN_SECRET",
+    "codeSnippet": "import Mux from '@mux/mux-node';\nconst mux = new Mux({\n  tokenId: process.env.MUX_TOKEN_ID!,\n  tokenSecret: process.env.MUX_TOKEN_SECRET!,\n});"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "No permanent free tier; $20 free credit on signup",
+    "startingPrice": "$0.015 per minute of video stored; $0.005 per minute delivered",
+    "costPer": "Storage: $0.015/min/month; Delivery: $0.005/min; Encoding: $0.015/min input",
+    "pricingUrl": "https://www.mux.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "all tiers",
+    "limit": "No documented hard rate limits for uploads/delivery",
+    "notes": "Mux uses a CDN for delivery — no rate limits on video streaming. API rate limits for management operations are generous. Contact support for high-volume upload scenarios.",
+    "retryStrategy": "Implement retry with exponential backoff for API calls. For upload failures, resume uploads using Mux's direct upload URL (valid for 24 hours)."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @mux/mux-node @mux/mux-player-react",
+    "importStatement": "import Mux from '@mux/mux-node';\nimport MuxPlayer from '@mux/mux-player-react';",
+    "otherLanguages": ["python", "ruby", "go", "php"]
+  },
+  "codeExamples": [
+    {
+      "title": "Create an asset from a URL and get playback ID",
+      "language": "typescript",
+      "code": "import Mux from '@mux/mux-node';\n\nconst mux = new Mux({\n  tokenId: process.env.MUX_TOKEN_ID!,\n  tokenSecret: process.env.MUX_TOKEN_SECRET!,\n});\n\n// Create an asset by providing a video URL\nconst asset = await mux.video.assets.create({\n  input: [{ url: 'https://example.com/video.mp4' }],\n  playback_policy: ['public'],\n  video_quality: 'basic',\n});\n\nconsole.log('Asset ID:', asset.id);\nconsole.log('Status:', asset.status); // 'preparing' initially\n\n// Playback ID for streaming (available once status is 'ready')\nconst playbackId = asset.playback_ids?.[0]?.id;\nconsole.log('Playback URL:', `https://stream.mux.com/${playbackId}.m3u8`);",
+      "notes": "Assets take time to process (encoding). Listen for the 'video.asset.ready' webhook to know when it's ready for playback. Use the playback_ids[0].id for the player URL."
+    },
+    {
+      "title": "Embed Mux Player in React",
+      "language": "typescript",
+      "code": "import MuxPlayer from '@mux/mux-player-react';\n\nexport function VideoPlayer({ playbackId }: { playbackId: string }) {\n  return (\n    <MuxPlayer\n      playbackId={playbackId}\n      metadata={{\n        video_id: playbackId,\n        video_title: 'My Video',\n        viewer_user_id: 'user-123',\n      }}\n      accentColor=\"#7c3aed\"\n      autoPlay={false}\n      style={{ width: '100%', aspectRatio: '16/9' }}\n    />\n  );\n}",
+      "notes": "MuxPlayer is a customizable React video player that handles HLS streaming, quality selection, and analytics automatically. The metadata fields feed into Mux Data (real-time analytics)."
+    }
+  ],
+  "gotchas": [
+    "Video assets go through a 'preparing' state after upload. You cannot stream a video until it reaches 'ready' status. Always implement webhook handling for 'video.asset.ready' events rather than polling.",
+    "Mux pricing is based on minutes of video — both stored and delivered. A 10-hour course with 1,000 students watching = 600,000 minutes/month. Calculate expected costs carefully before launch.",
+    "Direct uploads (client-side) require a two-step process: first create a direct upload URL from your server, then upload the file directly from the browser to that URL. Never proxy large video uploads through your server.",
+    "Signed playback URLs are required for private content. If you set playback_policy to 'signed', viewers need a JWT token to play the video. Set up signed URL generation on your server before going to production with private content."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA",
+    "statusPageUrl": "https://status.mux.com",
+    "notes": "Mux uses a global CDN for video delivery. Video encoding is handled asynchronously with webhook notifications. Used by Substack, Linear, and Beehiiv."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Best-in-class video API with excellent TypeScript SDK, pre-built React player component, and real-time analytics. The developer experience is exceptional — upload a URL, get a streaming URL in minutes. No permanent free tier is the main barrier for prototyping.",
+  "alternatives": ["cloudinary"],
+  "complementary": ["cloudinary", "uploadthing", "stripe"],
+  "bestFor": "Video streaming for course platforms, social video apps, and any application requiring reliable adaptive bitrate video delivery",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

@@ -1,0 +1,89 @@
+{
+  "name": "Google Maps Platform",
+  "slug": "google-maps",
+  "category": "maps",
+  "subcategory": "maps-and-navigation",
+  "website": "https://developers.google.com/maps",
+  "description": "Google Maps Platform is the world's most comprehensive mapping service, providing Maps, Places, Routes, and Geolocation APIs backed by Google's unmatched global map data. It is the default choice when place data accuracy, POI coverage, and user familiarity are the top priorities.",
+  "useCases": [
+    {
+      "task": "Add a Google Maps embed to a webpage",
+      "fit": "perfect"
+    },
+    {
+      "task": "Autocomplete address input fields with real-time suggestions",
+      "fit": "perfect"
+    },
+    {
+      "task": "Validate and geocode user addresses",
+      "fit": "perfect"
+    },
+    {
+      "task": "Calculate distance and travel time between locations",
+      "fit": "perfect"
+    },
+    {
+      "task": "Find nearby places (restaurants, stores) by category",
+      "fit": "perfect"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Go to console.cloud.google.com",
+      "Create or select a project",
+      "Go to APIs & Services > Enable APIs and enable the specific APIs you need (Maps JS, Places, Geocoding, etc.)",
+      "Go to APIs & Services > Credentials and create an API Key",
+      "Restrict the API key to specific APIs and HTTP referrers/IP addresses",
+      "Set GOOGLE_MAPS_API_KEY (and NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for browser use)"
+    ],
+    "envVarName": "GOOGLE_MAPS_API_KEY",
+    "codeSnippet": "// Browser: load via script tag\n// <script src=\"https://maps.googleapis.com/maps/api/js?key=API_KEY&libraries=places\"></script>\n// Server: use @googlemaps/google-maps-services-js\nimport { Client } from '@googlemaps/google-maps-services-js';\nconst client = new Client({});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "$200/month free credit (resets monthly)",
+    "startingPrice": "$200 free credit covers ~28,000 map loads or 40,000 geocoding requests",
+    "costPer": "Maps: $7/1,000 loads; Geocoding: $5/1,000 requests; Places: $17-32/1,000 requests",
+    "pricingUrl": "https://developers.google.com/maps/billing-and-pricing/pricing"
+  },
+  "rateLimits": {
+    "tier": "default",
+    "limit": "50 requests/second (Geocoding); 100 requests/second (Places); varies by API",
+    "notes": "Rate limits are per API key. QPS limits can be increased via the Google Cloud Console.",
+    "retryStrategy": "Respect Retry-After headers and implement exponential backoff for OVER_QUERY_LIMIT responses"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @googlemaps/google-maps-services-js @types/google.maps",
+    "importStatement": "import { Client } from '@googlemaps/google-maps-services-js';",
+    "otherLanguages": ["python", "java", "go", "ruby", "node"]
+  },
+  "codeExamples": [
+    {
+      "title": "Geocode an address (server-side)",
+      "language": "typescript",
+      "code": "import { Client } from '@googlemaps/google-maps-services-js';\n\nconst client = new Client({});\n\nconst response = await client.geocode({\n  params: {\n    address: '1600 Amphitheatre Parkway, Mountain View, CA',\n    key: process.env.GOOGLE_MAPS_API_KEY!,\n  },\n});\n\nconst result = response.data.results[0];\nif (!result) throw new Error('Address not found');\n\nconst { lat, lng } = result.geometry.location;\nconsole.log(`Lat: ${lat}, Lng: ${lng}`);\nconsole.log('Formatted:', result.formatted_address);",
+      "notes": "Server-side geocoding uses your unrestricted API key. For browser use, add the Maps JavaScript API with Places library. Always restrict your browser API key to specific domains."
+    }
+  ],
+  "gotchas": [
+    "The $200/month free credit sounds generous, but the Places API (New) can cost $17-32 per 1,000 requests, meaning it's exhausted in ~6,000-11,000 requests. Caching results is essential.",
+    "You need to enable EACH API separately in the Google Cloud Console — Maps JavaScript API, Geocoding API, Places API, and Directions API are all separate products with separate billing.",
+    "API keys must be restricted. An unrestricted key leaked in your frontend code can be used by anyone and run up charges. Restrict browser keys to your domain and server keys to specific APIs.",
+    "The Places Autocomplete API has a minimum character threshold and the widget UI is hard to customize compared to Mapbox. If you need full design control over the autocomplete dropdown, Mapbox's Geocoding API is more flexible."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA",
+    "statusPageUrl": "https://status.cloud.google.com",
+    "notes": "Google Maps has the most comprehensive global coverage and is the most reliable mapping platform. Infrastructure is backed by Google Cloud."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Unmatched data quality and global coverage, especially for POI data and place information. The $200/month free credit covers many use cases. Billing complexity, Places API cost, and harder API key management are the main drawbacks compared to Mapbox.",
+  "alternatives": ["mapbox"],
+  "complementary": ["supabase", "stripe", "clerk"],
+  "bestFor": "Address autocomplete, geocoding, and place search where Google's superior data coverage and user familiarity are the top priorities",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

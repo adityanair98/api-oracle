@@ -1,0 +1,87 @@
+{
+  "name": "Replicate",
+  "slug": "replicate",
+  "category": "ai",
+  "subcategory": "ml-model-hosting",
+  "website": "https://replicate.com",
+  "description": "Replicate is a cloud platform for running open-source machine learning models via API — including image generation (Stable Diffusion, FLUX), video generation, audio models, LLMs, and more. It abstracts away all GPU infrastructure, letting developers run state-of-the-art models with a single API call and pay only for the compute time used.",
+  "useCases": [
+    {
+      "task": "Generate images from text prompts using Stable Diffusion or FLUX",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run open-source LLMs (Llama, Mistral, etc.) via API",
+      "fit": "perfect"
+    },
+    {
+      "task": "Generate or edit video with AI models",
+      "fit": "perfect"
+    },
+    {
+      "task": "Remove image backgrounds, upscale images, or apply style transfer",
+      "fit": "perfect"
+    },
+    {
+      "task": "Fine-tune and host a custom ML model on GPU infrastructure",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at replicate.com",
+      "Go to Account Settings > API tokens",
+      "Create a new API token",
+      "Set REPLICATE_API_TOKEN environment variable"
+    ],
+    "envVarName": "REPLICATE_API_TOKEN",
+    "codeSnippet": "import Replicate from 'replicate';\nconst replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! });"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "No free tier; new accounts get a small credit to get started",
+    "startingPrice": "Pay-per-second of GPU compute; starts from ~$0.000225/sec (CPU) to ~$0.0008/sec (T4 GPU)",
+    "costPer": "Varies by model and hardware: Stable Diffusion SDXL: ~$0.0046/image; Llama 3 70B: ~$0.00065/1M tokens; FLUX Pro: ~$0.055/image",
+    "pricingUrl": "https://replicate.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "default",
+    "limit": "No hard rate limit on predictions; concurrent predictions limited by account tier",
+    "notes": "Cold starts can add 10-60 seconds to the first prediction on a model if no warm instances are running. Use the 'warmup' feature or schedule predictions to keep instances warm for latency-sensitive apps.",
+    "retryStrategy": "Implement polling with exponential backoff for prediction status checks. Predictions can be long-running — use webhooks instead of polling for better reliability in production."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact replicate",
+    "importStatement": "import Replicate from 'replicate';",
+    "otherLanguages": ["python", "go", "elixir"]
+  },
+  "codeExamples": [
+    {
+      "title": "Generate an image with FLUX",
+      "language": "typescript",
+      "code": "import Replicate from 'replicate';\n\nconst replicate = new Replicate({\n  auth: process.env.REPLICATE_API_TOKEN!,\n});\n\n// Run FLUX Schnell (fast, good quality)\nconst output = await replicate.run(\n  'black-forest-labs/flux-schnell',\n  {\n    input: {\n      prompt: 'A serene Japanese garden with cherry blossoms, golden hour, photorealistic',\n      num_outputs: 1,\n      aspect_ratio: '16:9',\n      output_format: 'webp',\n      output_quality: 90,\n    },\n  }\n) as string[];\n\nconst imageUrl = output[0];\nconsole.log('Generated image:', imageUrl);\n\n// For streaming output (e.g., LLM text generation)\nfor await (const event of replicate.stream('meta/meta-llama-3-8b-instruct', {\n  input: { prompt: 'Write a haiku about code reviews.' },\n})) {\n  process.stdout.write(String(event));\n}",
+      "notes": "The output type varies by model — image models return URL arrays, LLMs return strings or streams. Always check the model's schema on replicate.com for the exact input/output shape. Output URLs expire after 24 hours — save images to your own storage."
+    }
+  ],
+  "gotchas": [
+    "Output files (images, audio, video) are hosted by Replicate on temporary URLs that expire after 24 hours. You must download and store the output to your own storage (S3, Cloudinary, etc.) immediately after generation if you need persistent access.",
+    "Cold starts are a real problem for user-facing latency. If a model hasn't been run recently, the first prediction waits for a GPU instance to start and load the model weights — this can take 30-60+ seconds for large models. Use `replicate.deployments` for dedicated endpoints that stay warm.",
+    "Model versions can be deprecated or removed by the community. Hard-coding a specific model version string (e.g., `owner/model:sha256hash`) pins to that exact version, preventing breaking changes. Always pin to a version, not just the model name.",
+    "Cost can spike unexpectedly with video generation models, which consume minutes of GPU time per second of video. Always set spending limits in your Replicate account and test with short durations before generating long videos."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime for the API; individual model availability varies",
+    "statusPageUrl": "https://replicate.com/status",
+    "notes": "Replicate's API and core infrastructure are reliable. Individual model availability can vary — community models may be deprecated. Use official or partner models for production workloads."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "The easiest way to run any open-source ML model without managing GPU infrastructure. Exceptional breadth of available models (thousands), great TypeScript SDK, and transparent per-second pricing. The main limitations are cold starts for user-facing apps and no persistent storage for outputs. Ideal for prototyping and production ML workloads that don't need sub-second latency.",
+  "alternatives": ["openai", "anthropic", "resemble-ai"],
+  "complementary": ["cloudinary", "uploadthing", "supabase", "openai"],
+  "bestFor": "Running open-source ML models (image generation, LLMs, video, audio) via API without managing GPU infrastructure",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

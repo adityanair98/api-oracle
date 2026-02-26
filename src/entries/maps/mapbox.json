@@ -1,0 +1,87 @@
+{
+  "name": "Mapbox",
+  "slug": "mapbox",
+  "category": "maps",
+  "subcategory": "maps-and-navigation",
+  "website": "https://www.mapbox.com",
+  "description": "Mapbox is a developer-focused mapping platform providing interactive maps, geocoding, routing, navigation, and spatial data visualization. It is the preferred choice for applications needing highly customizable maps, offline navigation, or custom map styles — used by Snap, Instacart, and many data visualization tools.",
+  "useCases": [
+    {
+      "task": "Add interactive, customizable maps to a web or mobile app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Geocode addresses and search for places",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build turn-by-turn navigation in a mobile app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Display data visualizations on a map (heatmaps, clusters)",
+      "fit": "perfect"
+    },
+    {
+      "task": "Simple embedded Google-style map on a webpage",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at mapbox.com",
+      "Go to your Account page to find your default public access token",
+      "For server-side use, create a secret token with appropriate scopes",
+      "Set MAPBOX_ACCESS_TOKEN environment variable (or NEXT_PUBLIC_MAPBOX_TOKEN for browser)"
+    ],
+    "envVarName": "MAPBOX_ACCESS_TOKEN",
+    "codeSnippet": "import mapboxgl from 'mapbox-gl';\nmapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "50,000 map loads/month, 100,000 geocoding/month",
+    "startingPrice": "$50/month for higher usage (pay-as-you-go above free tier)",
+    "costPer": "$5 per 1,000 map loads above free tier; $0.75 per 1,000 geocoding requests",
+    "pricingUrl": "https://www.mapbox.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "all tiers",
+    "limit": "600 requests/minute for Geocoding API (default)",
+    "notes": "Map loads are counted per session (not per tile). Higher rate limits available on paid plans.",
+    "retryStrategy": "Implement exponential backoff for 429 responses. Cache geocoding results to avoid redundant API calls."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact mapbox-gl @types/mapbox-gl",
+    "importStatement": "import mapboxgl from 'mapbox-gl';\nimport 'mapbox-gl/dist/mapbox-gl.css';",
+    "otherLanguages": ["swift", "android", "react-native", "python"]
+  },
+  "codeExamples": [
+    {
+      "title": "Render an interactive map in React",
+      "language": "typescript",
+      "code": "import { useRef, useEffect } from 'react';\nimport mapboxgl from 'mapbox-gl';\nimport 'mapbox-gl/dist/mapbox-gl.css';\n\nmapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;\n\nexport function Map() {\n  const mapContainer = useRef<HTMLDivElement>(null);\n  const map = useRef<mapboxgl.Map | null>(null);\n\n  useEffect(() => {\n    if (map.current || !mapContainer.current) return;\n\n    map.current = new mapboxgl.Map({\n      container: mapContainer.current,\n      style: 'mapbox://styles/mapbox/streets-v12',\n      center: [-74.0060, 40.7128], // NYC\n      zoom: 12,\n    });\n\n    // Add a marker\n    new mapboxgl.Marker()\n      .setLngLat([-74.0060, 40.7128])\n      .addTo(map.current);\n\n    return () => map.current?.remove();\n  }, []);\n\n  return <div ref={mapContainer} style={{ height: '400px', width: '100%' }} />;\n}",
+      "notes": "Remember to import 'mapbox-gl/dist/mapbox-gl.css' — without it, the map UI controls won't render. In Next.js, add this to your layout or global CSS."
+    }
+  ],
+  "gotchas": [
+    "Mapbox GL JS requires WebGL. It does not work in environments without WebGL support (some headless browsers, server-side rendering). Use dynamic imports in Next.js to prevent SSR issues.",
+    "The Mapbox access token is public-facing (must be in client-side code). Always restrict your public token to specific URLs in the Mapbox dashboard to prevent unauthorized usage from stealing your quota.",
+    "Map loads are counted per web session, not per page view. A single user session that initializes the map once counts as one load. But if your SPA reinitializes the map on every route change, you'll burn through quota quickly.",
+    "Custom map styles using Mapbox Studio look great but can be complex to maintain. For most apps, the built-in styles (streets-v12, satellite-streets-v12) are sufficient and require no maintenance."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA",
+    "statusPageUrl": "https://status.mapbox.com",
+    "notes": "Mapbox serves tiles from a global CDN. Core map rendering is client-side (WebGL), so partial API outages rarely affect the user experience."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best choice for custom map styling and data visualization on maps. More developer-friendly than Google Maps with better pricing for most use cases. The 50k free map loads/month is sufficient for most apps. Requires WebGL and has a steeper initial learning curve than Google Maps.",
+  "alternatives": ["google-maps"],
+  "complementary": ["supabase", "stripe"],
+  "bestFor": "Custom, interactive maps with data visualization, heatmaps, and highly styled cartography for web and mobile apps",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

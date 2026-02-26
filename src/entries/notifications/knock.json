@@ -1,0 +1,84 @@
+{
+  "name": "Knock",
+  "slug": "knock",
+  "category": "notifications",
+  "subcategory": "notification-infrastructure",
+  "website": "https://knock.app",
+  "description": "Knock is a notification infrastructure platform that manages the entire notification workflow: routing users to the right channels (email, push, SMS, in-app), managing user preferences, handling notification templates, and tracking delivery — all in one place. It is built for product engineers who want to offload notification complexity.",
+  "useCases": [
+    {
+      "task": "Build a multi-channel notification system (email + push + in-app + SMS)",
+      "fit": "perfect"
+    },
+    {
+      "task": "Let users manage their own notification preferences",
+      "fit": "perfect"
+    },
+    {
+      "task": "Trigger notifications from workflows and digests",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add an in-app notification feed to a web application",
+      "fit": "perfect"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at knock.app",
+      "Create a new environment (development and production are separate)",
+      "Go to Settings > API Keys to get your API key",
+      "Create users (Knock stores user preferences and notification history)",
+      "Set KNOCK_API_KEY environment variable"
+    ],
+    "envVarName": "KNOCK_API_KEY",
+    "codeSnippet": "import Knock from '@knocklabs/node';\nconst knock = new Knock(process.env.KNOCK_API_KEY!);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Up to 10,000 monthly notifications, 1 environment",
+    "startingPrice": "$100/month (Starter plan) for 100,000 notifications, 3 environments",
+    "costPer": "$1 per 1,000 notifications above plan limit",
+    "pricingUrl": "https://knock.app/pricing"
+  },
+  "rateLimits": {
+    "tier": "all tiers",
+    "limit": "500 requests/minute for the Workflows API (default)",
+    "notes": "Rate limits are per API key. Bulk workflow triggers and batch operations available. Contact support for higher limits.",
+    "retryStrategy": "Knock handles delivery retries internally per channel. Implement application-level retry with backoff for 429 API responses."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @knocklabs/node",
+    "importStatement": "import Knock from '@knocklabs/node';",
+    "otherLanguages": ["python", "ruby", "go", "java", "elixir"]
+  },
+  "codeExamples": [
+    {
+      "title": "Trigger a notification workflow",
+      "language": "typescript",
+      "code": "import Knock from '@knocklabs/node';\n\nconst knock = new Knock(process.env.KNOCK_API_KEY!);\n\n// Identify the recipient (creates or updates the user in Knock)\nawait knock.users.identify('user-123', {\n  name: 'Jane Smith',\n  email: 'jane@example.com',\n  phone_number: '+14155551234',\n});\n\n// Trigger a workflow\nconst result = await knock.workflows.trigger('new-comment', {\n  recipients: ['user-123'],\n  data: {\n    commenter_name: 'Bob',\n    post_title: 'My awesome post',\n    comment_text: 'Great post, Jane!',\n    post_url: 'https://app.com/posts/456',\n  },\n  actor: 'user-456', // Who triggered the action\n});\n\nconsole.log('Workflow triggered:', result.workflow_run_id);",
+      "notes": "Workflows are defined in the Knock dashboard with channel routing logic. The 'new-comment' key matches the workflow key you created. Data fields map to template variables in your notification templates."
+    }
+  ],
+  "gotchas": [
+    "Knock requires you to 'identify' users before triggering notifications. If you trigger a workflow for an unidentified user, the notification is silently dropped. Always call users.identify() when users sign up in your app.",
+    "Knock's pricing scales by notifications sent, not users. If your app sends frequent notifications (e.g., a busy collaboration tool), costs can grow quickly. The 10k/month free tier is limiting for high-activity apps.",
+    "Knock manages notification preferences, but your app still needs to register push tokens (APNs/FCM). You send the token to Knock, which stores it per user — but you still need to implement the mobile push registration flow.",
+    "Environments in Knock are completely isolated. Workflows, templates, and configurations in Development don't carry over to Production — you must recreate them. Use the dashboard export/import to migrate."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime on paid plans",
+    "statusPageUrl": "https://status.knock.app",
+    "notes": "Knock is a younger platform but has strong reliability track record. Used by Vercel, Linear, and other developer-focused companies."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best developer experience for building complex notification systems. The workflow model, user preference management, and in-app feed components are genuinely excellent. Pricing is the main constraint — $100/month minimum for production use is steep for indie developers. Excellent TypeScript SDK.",
+  "alternatives": ["novu", "onesignal"],
+  "complementary": ["resend", "twilio", "clerk"],
+  "bestFor": "Multi-channel notification infrastructure with workflow routing, user preferences, and in-app notification feeds for SaaS products",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

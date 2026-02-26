@@ -1,0 +1,84 @@
+{
+  "name": "Novu",
+  "slug": "novu",
+  "category": "notifications",
+  "subcategory": "notification-infrastructure",
+  "website": "https://novu.co",
+  "description": "Novu is an open-source notification infrastructure platform supporting email, SMS, push, in-app, and chat notifications from a single API. As an open-source alternative to Knock and Courier, it can be self-hosted for full data control, or used as a managed cloud service with a generous free tier.",
+  "useCases": [
+    {
+      "task": "Build a multi-channel notification system with open-source flexibility",
+      "fit": "perfect"
+    },
+    {
+      "task": "Self-host notification infrastructure for data control",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add an in-app notification bell/feed to a web app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send notifications via multiple providers with fallback logic",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at novu.co (or self-host via Docker)",
+      "Go to Settings > API Keys in the Novu dashboard",
+      "Copy your API Key",
+      "Set NOVU_API_KEY environment variable",
+      "Create notification workflows (called 'workflows' or 'notifications') in the dashboard"
+    ],
+    "envVarName": "NOVU_API_KEY",
+    "codeSnippet": "import { Novu } from '@novu/node';\nconst novu = new Novu(process.env.NOVU_API_KEY!);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "30,000 events/month, unlimited subscribers (cloud)",
+    "startingPrice": "$250/month (Business plan) for 250,000 events/month",
+    "costPer": "Cloud: $0.01 per event above free tier; self-hosted is free",
+    "pricingUrl": "https://novu.co/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier (cloud)",
+    "limit": "30,000 events/month, 60 requests/minute API rate limit",
+    "notes": "Self-hosted has no limits beyond your infrastructure capacity. Cloud rate limits scale with paid plans.",
+    "retryStrategy": "Implement standard exponential backoff for 429 responses. Novu handles per-channel delivery retries automatically."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @novu/node",
+    "importStatement": "import { Novu } from '@novu/node';",
+    "otherLanguages": ["python", "php", "ruby", "java", "go", "dotnet"]
+  },
+  "codeExamples": [
+    {
+      "title": "Trigger a notification",
+      "language": "typescript",
+      "code": "import { Novu } from '@novu/node';\n\nconst novu = new Novu(process.env.NOVU_API_KEY!);\n\n// Identify subscriber (creates if not exists)\nawait novu.subscribers.identify('user-123', {\n  firstName: 'Jane',\n  lastName: 'Smith',\n  email: 'jane@example.com',\n  phone: '+14155551234',\n});\n\n// Trigger workflow\nconst result = await novu.trigger('order-shipped', {\n  to: { subscriberId: 'user-123' },\n  payload: {\n    orderId: 'order_456',\n    trackingUrl: 'https://track.example.com/order_456',\n    estimatedDelivery: 'Feb 28, 2026',\n  },\n});\n\nconsole.log('Triggered:', result.data?.transactionId);",
+      "notes": "Workflows are defined in the Novu dashboard. The first argument to trigger() is the workflow trigger ID. Subscribers are automatically created if they don't exist."
+    }
+  ],
+  "gotchas": [
+    "Novu's open-source status means the self-hosted version can lag behind the cloud version in features. Check the GitHub releases before choosing self-hosting for production.",
+    "The jump from free tier (30k events) to paid ($250/month Business) is steep with no intermediate tier. For apps between 30k-250k events, consider whether the cost is justified versus simpler alternatives.",
+    "Novu's workflow builder in the dashboard is a visual editor — complex workflows with branching logic are harder to version-control than code-based approaches like Knock.",
+    "Subscriber management is separate from your user database. You must sync users to Novu (via identify()) on signup and keep them in sync. A missed identify call means notifications get dropped silently."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.5% uptime on cloud; self-hosted depends on your infrastructure",
+    "statusPageUrl": "https://novustatus.com",
+    "notes": "Novu cloud is improving reliability. Self-hosted on your own infrastructure gives full control. The project is actively maintained with a large open-source community."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Best option if open-source and self-hosting are important. The 30k/month free cloud tier is the most generous in the notification infrastructure category. Dashboard UX is improving. Less polished than Knock for complex workflows, but the self-hosting option is a genuine differentiator.",
+  "alternatives": ["knock", "onesignal"],
+  "complementary": ["resend", "twilio", "supabase"],
+  "bestFor": "Multi-channel notification infrastructure with open-source flexibility and self-hosting option for data control",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

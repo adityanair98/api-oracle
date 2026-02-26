@@ -1,0 +1,88 @@
+{
+  "name": "Resemble AI",
+  "slug": "resemble-ai",
+  "category": "ai",
+  "subcategory": "voice-synthesis",
+  "website": "https://www.resemble.ai",
+  "description": "Resemble AI is a voice cloning and AI speech generation platform that creates hyper-realistic synthetic voices from audio samples. It supports real-time streaming TTS, custom voice cloning from as little as 3 seconds of audio, and a localization API for dubbing content into multiple languages. Used for IVR systems, audiobooks, game characters, and personalized voice experiences.",
+  "useCases": [
+    {
+      "task": "Clone a specific person's voice for text-to-speech",
+      "fit": "perfect"
+    },
+    {
+      "task": "Generate realistic AI voiceover for videos or podcasts",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build voice-enabled IVR or customer service bots with custom voices",
+      "fit": "perfect"
+    },
+    {
+      "task": "Stream TTS audio in real-time for low-latency voice applications",
+      "fit": "perfect"
+    },
+    {
+      "task": "Localize/dub video content into multiple languages",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at app.resemble.ai",
+      "Go to Account > API Key to generate your API token",
+      "Create a voice (or clone one by uploading audio samples)",
+      "Note your project UUID from the project settings",
+      "Set RESEMBLE_API_KEY environment variable"
+    ],
+    "envVarName": "RESEMBLE_API_KEY",
+    "codeSnippet": "import Resemble from '@resemble/node';\nResemble.setApiKey(process.env.RESEMBLE_API_KEY!);"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "No persistent free tier; trial credits provided on signup",
+    "startingPrice": "$0.006 per second of generated audio (pay-as-you-go)",
+    "costPer": "$0.006/second for standard TTS; real-time streaming has different pricing; voice cloning: included with API access",
+    "pricingUrl": "https://www.resemble.ai/pricing"
+  },
+  "rateLimits": {
+    "tier": "default",
+    "limit": "Varies by plan; async clip generation has no strict rate limit; streaming is concurrent-connection limited",
+    "notes": "Async clip generation (non-streaming) is queued and can handle high throughput. Real-time streaming connections are limited per account tier. Contact sales for high-volume pricing.",
+    "retryStrategy": "Implement exponential backoff for 429 and 503 responses. For async clip generation, poll the clip status endpoint rather than holding the connection open."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @resemble/node",
+    "importStatement": "import Resemble from '@resemble/node';",
+    "otherLanguages": ["python"]
+  },
+  "codeExamples": [
+    {
+      "title": "Generate a speech clip from text (async)",
+      "language": "typescript",
+      "code": "import Resemble from '@resemble/node';\n\nResemble.setApiKey(process.env.RESEMBLE_API_KEY!);\n\nconst projectUuid = process.env.RESEMBLE_PROJECT_UUID!;\nconst voiceUuid = process.env.RESEMBLE_VOICE_UUID!;\n\n// Create an async clip (non-streaming)\nconst response = await Resemble.v2.clips.createAsync(projectUuid, {\n  voice_uuid: voiceUuid,\n  body: 'Hello, this is a test of Resemble AI voice synthesis.',\n  is_public: false,\n  is_archived: false,\n  sample_rate: 44100,\n  output_format: 'mp3',\n  precision: 'PCM_16',\n});\n\nif (response.success) {\n  const clipUuid = response.item.uuid;\n  console.log('Clip created:', clipUuid);\n  \n  // Poll until complete (or use webhook callback_uri)\n  let clip = response.item;\n  while (!clip.audio_src) {\n    await new Promise(r => setTimeout(r, 1000));\n    const status = await Resemble.v2.clips.get(projectUuid, clipUuid);\n    if (status.success) clip = status.item;\n  }\n  \n  console.log('Audio URL:', clip.audio_src);\n} else {\n  console.error('Failed to create clip:', response.message);\n}",
+      "notes": "Use callback_uri instead of polling for production — pass a webhook URL and Resemble will POST to it when the clip is ready. For real-time use cases, use the streaming API instead of async clips."
+    }
+  ],
+  "gotchas": [
+    "Voice cloning quality depends heavily on the quality and diversity of the training audio. Clean audio with minimal background noise and varied intonation (not monotone reading) produces significantly better results than low-quality samples.",
+    "Resemble's async clip generation can take 10-60 seconds for longer texts. For user-facing real-time applications, use the streaming WebSocket API instead, which delivers audio chunks as they're generated with much lower latency.",
+    "The `body` field for clip generation accepts plain text but also supports SSML for controlling pronunciation, pauses, and emphasis. However, not all SSML tags are supported — test carefully before relying on SSML in production.",
+    "Generated audio URLs are temporary and expire. Download and store the audio to your own storage (e.g., S3, Cloudinary) immediately after generation if you need persistent access."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.5% uptime on standard plans",
+    "statusPageUrl": "https://status.resemble.ai",
+    "notes": "Resemble AI is production-grade and used by enterprise customers. Async generation is highly reliable; real-time streaming is more sensitive to network conditions."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Best-in-class for voice cloning realism, especially from short audio samples. The API is well-designed and the Node SDK is usable. The main limitations are the pay-as-you-go pricing (no free tier) and the need to manage clip polling or webhooks for async generation. A solid choice for voice-heavy applications; compare with ElevenLabs for non-cloning TTS use cases.",
+  "alternatives": ["replicate"],
+  "complementary": ["mux", "cloudinary", "openai", "deepgram"],
+  "bestFor": "Custom voice cloning and high-realism AI speech generation for IVR, audiobooks, and branded voice experiences",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

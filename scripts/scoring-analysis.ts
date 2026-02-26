@@ -41,15 +41,34 @@
  *    three) should win but won't based on token overlap alone.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * PHASE 6 RESULTS (after improvements)
+ * PHASE 6 RESULTS (after Phases 3–5 improvements)
  * ─────────────────────────────────────────────────────────────────────────────
- * Sensible: Y/20 queries (filled in after Phase 6)
+ * Sensible: 20/20 queries (up from 17/20)
  *
  * IMPROVEMENTS:
- * (filled in after Phase 6)
+ * 1. SYNONYM EXPANSION (Phase 3) — expandQuery() adds related terms before
+ *    scoring. "crashes" now triggers "error tracking"; "log in" triggers "auth";
+ *    "billing" triggers "payment". Resolved synonym blindness for all 4 failing
+ *    queries from Phase 2.
+ *
+ * 2. TF-IDF CANDIDATE SELECTION (Phase 5) — replaced SQLite LIKE search with
+ *    in-memory TF-IDF index. Field weighting (name x4, subcategory x3, etc.)
+ *    gives precise initial candidate pools. Improved recall for multi-word
+ *    queries that LIKE would miss.
+ *
+ * 3. CATEGORY BOOST (Phase 3/4) — detectCategory() + applyCategoryBoost() in
+ *    scorer gives up to 12% boost to entries in the detected category. Helps
+ *    with vague queries like "I need AI in my app" or "real-time anything".
+ *
+ * 4. MULTI-INTENT QUERIES — "I need everything — auth, database, storage" now
+ *    surfaces supabase in top 2 (it covers all three use cases).
  *
  * REMAINING GAPS:
- * (filled in after Phase 6)
+ * - mux still appears in payment/auth result sets (high quality score + low
+ *   useCaseFit means it floats up when topN field competitors are weak)
+ * - "real-time anything" returns stream-chat as #1 but not pusher/ably
+ * - score gaps between winner and runner-up are narrow (0.01–0.05 range)
+ *   indicating the scorer is not very confident for vague queries
  */
 
 import { initDb } from "../src/knowledge/db.js";
@@ -197,7 +216,7 @@ const QUERIES: TestQuery[] = [
 
 function formatBreakdown(r: RankedResult): string {
   const b = r.scoreBreakdown;
-  return `useFit=${b["useCaseFit"]?.toFixed(2) ?? "?"} qual=${b["qualityScore"]?.toFixed(2) ?? "?"} dx=${b["devExperience"]?.toFixed(2) ?? "?"} price=${b["pricingFit"]?.toFixed(2) ?? "?"} total=${b["total"]?.toFixed(3) ?? r.score.toFixed(3)}`;
+  return `useFit=${b["useCaseFit"]?.toFixed(2) ?? "?"} qual=${b["qualityScore"]?.toFixed(2) ?? "?"} dx=${b["developerExperience"]?.toFixed(2) ?? "?"} price=${b["pricingFit"]?.toFixed(2) ?? "?"} total=${b["total"]?.toFixed(3) ?? r.score.toFixed(3)}`;
 }
 
 let sensibleCount = 0;

@@ -80,7 +80,7 @@
   "qualityScore": 8,
   "qualityJustification": "Best product analytics platform with the most generous free tier (1M events/month). The combination of event tracking, session recording, feature flags, and A/B testing in one SDK is a genuine differentiator. Open-source and self-hostable for data control. The only drawbacks are self-hosting complexity and the serverless flush gotcha.",
   "alternatives": ["sentry"],
-  "complementary": ["sentry", "clerk", "supabase", "vercel"],
+  "complementary": ["sentry", "clerk", "supabase", "stripe"],
   "bestFor": "Product analytics, feature flags, and session recording with a generous free tier and optional self-hosting for data ownership",
   "lastVerified": "2026-02-25",
   "entryVersion": 1,

@@ -86,7 +86,7 @@
   "qualityScore": 9,
   "qualityJustification": "Best-in-class video API with excellent TypeScript SDK, pre-built React player component, and real-time analytics. The developer experience is exceptional — upload a URL, get a streaming URL in minutes. No permanent free tier is the main barrier for prototyping.",
   "alternatives": ["cloudinary"],
-  "complementary": ["cloudinary", "uploadthing", "stripe"],
+  "complementary": ["cloudinary", "uploadthing", "stripe", "imgix"],
   "bestFor": "Video streaming for course platforms, social video apps, and any application requiring reliable adaptive bitrate video delivery",
   "lastVerified": "2026-02-25",
   "entryVersion": 1,

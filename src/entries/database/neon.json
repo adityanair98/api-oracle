@@ -86,7 +86,7 @@
   "qualityScore": 8,
   "qualityJustification": "Best serverless Postgres for cost-sensitive projects — scale-to-zero billing means you only pay for actual usage. Full PostgreSQL compatibility with no compromises (unlike MySQL-based alternatives). Database branching is genuinely useful for CI/CD. Cold start latency is the main tradeoff.",
   "alternatives": ["supabase", "planetscale"],
-  "complementary": ["drizzle-orm", "clerk", "stripe", "resend"],
+  "complementary": ["clerk", "stripe", "resend", "supabase"],
   "bestFor": "Serverless PostgreSQL that scales to zero — ideal for applications with variable traffic, preview environments, and teams using Drizzle or Prisma",
   "lastVerified": "2026-02-25",
   "entryVersion": 1,

@@ -85,7 +85,7 @@
   },
   "qualityScore": 8,
   "qualityJustification": "The best serverless Redis solution — the HTTP REST API is a genuine differentiator for edge/serverless environments. @upstash/ratelimit is excellent. Pricing is very competitive with pay-per-use. The incompatibility with standard Redis clients is the main limitation.",
-  "alternatives": ["supabase"],
+  "alternatives": ["supabase", "neon"],
   "complementary": ["supabase", "neon", "clerk"],
   "bestFor": "Serverless Redis for caching, rate limiting, and session storage in Next.js, Vercel Edge Functions, and Cloudflare Workers",
   "lastVerified": "2026-02-25",

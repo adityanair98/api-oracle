@@ -76,7 +76,7 @@
   "qualityScore": 7,
   "qualityJustification": "Excellent image processing quality with powerful URL-based transformations and a reliable CDN. Works with your existing storage (no lock-in). However, pricing starts at $100/month with no meaningful free tier, making it inaccessible for small teams. Cloudinary is better for most use cases due to the free tier.",
   "alternatives": ["cloudinary"],
-  "complementary": ["cloudinary", "uploadthing", "supabase"],
+  "complementary": ["cloudinary", "uploadthing", "supabase", "mux"],
   "bestFor": "Image transformation and CDN delivery for teams already using S3 or GCS who need URL-based transformations without migrating storage",
   "lastVerified": "2026-02-25",
   "entryVersion": 1,

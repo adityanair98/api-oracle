@@ -76,7 +76,7 @@
   "qualityScore": 9,
   "qualityJustification": "The undisputed standard for error tracking. Exceptional SDK quality across every major language and framework. Source map support, breadcrumbs, performance monitoring, and release tracking are all best-in-class. The free tier is limiting for teams but sufficient for solo projects. Near-zero setup friction with the wizard.",
   "alternatives": ["posthog"],
-  "complementary": ["posthog", "supabase", "vercel"],
+  "complementary": ["posthog", "supabase", "stripe"],
   "bestFor": "Production error tracking and performance monitoring — the default choice for any application that needs to catch and debug runtime errors",
   "lastVerified": "2026-02-25",
   "entryVersion": 1,

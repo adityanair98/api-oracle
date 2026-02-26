@@ -79,7 +79,7 @@
   "qualityScore": 8,
   "qualityJustification": "The easiest way to run any open-source ML model without managing GPU infrastructure. Exceptional breadth of available models (thousands), great TypeScript SDK, and transparent per-second pricing. The main limitations are cold starts for user-facing apps and no persistent storage for outputs. Ideal for prototyping and production ML workloads that don't need sub-second latency.",
   "alternatives": ["openai", "anthropic", "resemble-ai"],
-  "complementary": ["cloudinary", "uploadthing", "supabase", "openai"],
+  "complementary": ["cloudinary", "uploadthing", "supabase", "openai", "deepgram"],
   "bestFor": "Running open-source ML models (image generation, LLMs, video, audio) via API without managing GPU infrastructure",
   "lastVerified": "2026-02-25",
   "entryVersion": 1,

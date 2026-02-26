@@ -76,7 +76,7 @@
   "qualityScore": 8,
   "qualityJustification": "Best speech-to-text API for production use with better accuracy than OpenAI Whisper at lower latency and competitive pricing. Excellent TypeScript SDK. $200 free credit is genuinely useful. Slightly less mainstream than Whisper, so fewer community examples.",
   "alternatives": ["openai"],
-  "complementary": ["openai", "anthropic", "mux"],
+  "complementary": ["openai", "anthropic", "mux", "replicate"],
   "bestFor": "Production speech-to-text transcription with speaker diarization, real-time streaming, and better accuracy than Whisper at competitive prices",
   "lastVerified": "2026-02-25",
   "entryVersion": 1,

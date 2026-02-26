@@ -1,0 +1,104 @@
+{
+  "name": "AWS S3",
+  "slug": "aws-s3",
+  "category": "infrastructure",
+  "subcategory": "object-storage",
+  "website": "https://aws.amazon.com/s3/",
+  "description": "AWS S3 is the industry-standard object storage service \u2014 massively durable (11 nines), infinitely scalable, and the API that every competing storage service has adopted as the universal interface.",
+  "useCases": [
+    {
+      "task": "Store and serve files, images, and documents at scale",
+      "fit": "perfect"
+    },
+    {
+      "task": "Host static website assets with CDN",
+      "fit": "perfect"
+    },
+    {
+      "task": "Store application backups and logs",
+      "fit": "perfect"
+    },
+    {
+      "task": "Store large media files for video streaming pipeline",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create an AWS account at aws.amazon.com",
+      "Go to IAM \u2192 Users \u2192 Create user",
+      "Attach a policy with S3 permissions (e.g. AmazonS3FullAccess or a custom policy)",
+      "Go to the user's Security credentials tab \u2192 Create access key",
+      "Copy the Access Key ID and Secret Access Key",
+      "Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION environment variables"
+    ],
+    "envVarName": "AWS_ACCESS_KEY_ID",
+    "codeSnippet": "import { S3Client } from '@aws-sdk/client-s3';\n\nconst s3 = new S3Client({\n  region: process.env.AWS_REGION!,\n  credentials: {\n    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,\n    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,\n  },\n});"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "12 months free: 5GB standard storage, 20K GET requests, 2K PUT requests (new AWS accounts only)",
+    "startingPrice": "$0.023/GB-month (S3 Standard, us-east-1)",
+    "costPer": "$0.023/GB-month storage, $0.0004/1K PUT requests, $0.0004/1K GET requests, $0.09/GB data transfer out",
+    "pricingUrl": "https://aws.amazon.com/s3/pricing/"
+  },
+  "rateLimits": {
+    "tier": "no hard limits",
+    "limit": "3,500 PUT/COPY/POST/DELETE requests/second per prefix, 5,500 GET/HEAD requests/second per prefix (auto-scaling with request patterns)",
+    "notes": "S3 automatically scales request rate based on traffic patterns. Rate limits apply per key prefix, so distributing objects across multiple prefixes multiplies throughput linearly.",
+    "retryStrategy": "AWS SDK has built-in exponential backoff retry. For high throughput, use multiple key prefixes to distribute load across partitions."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @aws-sdk/client-s3 @aws-sdk/s3-request-presigner",
+    "importStatement": "import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';",
+    "otherLanguages": [
+      "python",
+      "java",
+      "go",
+      "ruby",
+      "php"
+    ]
+  },
+  "codeExamples": [
+    {
+      "title": "Upload a file to S3",
+      "language": "typescript",
+      "code": "import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';\n\nconst s3 = new S3Client({\n  region: process.env.AWS_REGION!,\n  credentials: {\n    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,\n    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,\n  },\n});\n\nasync function uploadFile(\n  bucketName: string,\n  key: string,\n  body: Buffer | string,\n  contentType: string\n): Promise<string> {\n  const command = new PutObjectCommand({\n    Bucket: bucketName,\n    Key: key,\n    Body: body,\n    ContentType: contentType,\n  });\n\n  await s3.send(command);\n\n  return `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;\n}\n\n// Usage\nconst url = await uploadFile(\n  'my-app-bucket',\n  'uploads/profile-picture.jpg',\n  imageBuffer,\n  'image/jpeg'\n);\nconsole.log('Uploaded to:', url);",
+      "notes": "The Key is the full object path within the bucket. ContentType should always be set \u2014 browsers use it to decide how to handle the file. Objects are private by default; use PutObjectAcl or a bucket policy to make them public."
+    },
+    {
+      "title": "Generate a presigned URL for temporary access",
+      "language": "typescript",
+      "code": "import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';\nimport { getSignedUrl } from '@aws-sdk/s3-request-presigner';\n\nconst s3 = new S3Client({\n  region: process.env.AWS_REGION!,\n  credentials: {\n    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,\n    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,\n  },\n});\n\nasync function getPresignedDownloadUrl(\n  bucketName: string,\n  key: string,\n  expiresInSeconds: number = 3600\n): Promise<string> {\n  const command = new GetObjectCommand({\n    Bucket: bucketName,\n    Key: key,\n  });\n\n  const signedUrl = await getSignedUrl(s3, command, {\n    expiresIn: expiresInSeconds,\n  });\n\n  return signedUrl;\n}\n\n// Usage: generate a URL valid for 1 hour\nconst downloadUrl = await getPresignedDownloadUrl(\n  'my-app-bucket',\n  'uploads/invoice-2024.pdf',\n  3600\n);\nconsole.log('Temporary URL (expires in 1 hour):', downloadUrl);",
+      "notes": "Presigned URLs allow temporary, authenticated access to private objects without exposing credentials. expiresIn is in seconds; max is 7 days (604800). Use presigned PUT URLs to allow direct browser-to-S3 uploads without routing through your server."
+    }
+  ],
+  "gotchas": [
+    "S3 objects are private by default. To make them publicly accessible you must either set a bucket policy or generate presigned URLs. 'Making a bucket public' is an account-level setting you must explicitly enable \u2014 Block Public Access is on by default and must be turned off at both the account and bucket level before a bucket policy can grant public access.",
+    "Egress (data transfer OUT from S3 to the internet) costs $0.09/GB. For apps serving many large files, this adds up quickly. Use CloudFront CDN in front of S3 to reduce egress costs, or migrate to Cloudflare R2 (zero egress fees) for high-traffic files.",
+    "S3 eventual consistency was a historical gotcha, but since December 2020, S3 offers strong read-after-write consistency for all operations. However, S3 is still NOT a database \u2014 don't use it for frequently-updated objects that require atomic operations.",
+    "IAM permissions are complex. A common mistake is giving s3:* to an IAM user \u2014 instead, scope permissions tightly: s3:PutObject and s3:GetObject on specific bucket ARNs. Never use root account credentials in application code."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.999999999% (11 nines) durability, 99.99% availability SLA for S3 Standard",
+    "statusPageUrl": "https://status.aws.amazon.com",
+    "notes": "Data is replicated across a minimum of 3 Availability Zones within the selected AWS region. S3 Standard-IA, Glacier, and other storage classes have different durability and availability SLAs."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "The industry standard for object storage. 11-nines durability, massive ecosystem support, and the S3 API is the universal interface adopted by all competitors. Egress costs and IAM complexity are the main friction points, but nothing comes close for reliability and ecosystem breadth.",
+  "alternatives": [
+    "cloudflare-r2",
+    "digital-ocean-spaces",
+    "cloudinary"
+  ],
+  "complementary": [
+    "cloudflare-workers",
+    "vercel"
+  ],
+  "bestFor": "Storing any type of file at scale \u2014 from user uploads to application backups \u2014 with the most widely supported API in cloud infrastructure",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

@@ -1,0 +1,90 @@
+{
+  "name": "Netlify",
+  "slug": "netlify",
+  "category": "devops",
+  "subcategory": "frontend-deployment",
+  "website": "https://netlify.com",
+  "description": "Netlify is a git-based platform for web deployment with continuous deployment, serverless functions, edge functions, split testing, and built-in form handling — making it a full-featured hosting solution for JAMstack and static sites.",
+  "useCases": [
+    {
+      "task": "Deploy a static site or JAMstack application",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add serverless functions to a frontend app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Set up continuous deployment from GitHub",
+      "fit": "perfect"
+    },
+    {
+      "task": "A/B testing with split traffic between branches",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at netlify.com",
+      "Create a new site from the dashboard",
+      "Connect your GitHub, GitLab, or Bitbucket repository",
+      "Netlify auto-deploys on every push to your configured production branch",
+      "Generate a personal access token at app.netlify.com/user/applications and set NETLIFY_AUTH_TOKEN"
+    ],
+    "envVarName": "NETLIFY_AUTH_TOKEN",
+    "codeSnippet": "// Trigger a deploy via the Netlify REST API\nconst response = await fetch(\n  `https://api.netlify.com/api/v1/sites/${process.env.NETLIFY_SITE_ID}/builds`,\n  {\n    method: 'POST',\n    headers: {\n      Authorization: `Bearer ${process.env.NETLIFY_AUTH_TOKEN}`,\n      'Content-Type': 'application/json',\n    },\n  }\n);\nconst build = await response.json();\nconsole.log('Build triggered:', build.id);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Starter: 100GB bandwidth/month, 300 build minutes/month, 125K serverless invocations/month",
+    "startingPrice": "$19/month (Pro) for 400GB bandwidth, 25K build minutes",
+    "costPer": "Additional bandwidth at $0.55/GB, additional build minutes at $0.025/minute above included.",
+    "pricingUrl": "https://netlify.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "125,000 serverless function invocations/month, 10s function timeout (free), 300 build minutes/month",
+    "notes": "Netlify Functions time out at 10 seconds on the free Starter plan and 26 seconds on paid plans. Invocation count resets monthly. Background functions (async, no response required) are available on paid plans only.",
+    "retryStrategy": "Functions timeout at 10s on free tier (26s on paid). Implement timeouts and fallbacks in client code."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact netlify-cli --save-dev",
+    "importStatement": "// No runtime SDK — use Netlify Functions or the REST API",
+    "otherLanguages": ["javascript", "python", "go"]
+  },
+  "codeExamples": [
+    {
+      "title": "Netlify Function (serverless)",
+      "language": "typescript",
+      "code": "// netlify/functions/hello.ts\nimport type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';\n\ninterface RequestBody {\n  name?: string;\n}\n\nexport const handler: Handler = async (\n  event: HandlerEvent,\n  _context: HandlerContext\n) => {\n  if (event.httpMethod !== 'POST') {\n    return {\n      statusCode: 405,\n      body: JSON.stringify({ error: 'Method Not Allowed' }),\n    };\n  }\n\n  const body: RequestBody = event.body ? JSON.parse(event.body) : {};\n  const name = body.name ?? 'World';\n\n  return {\n    statusCode: 200,\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ message: `Hello, ${name}!`, timestamp: Date.now() }),\n  };\n};",
+      "notes": "Place functions in netlify/functions/*.ts and they are automatically deployed. Install types with: npm install --save-exact @netlify/functions. The function is available at /.netlify/functions/hello. Use netlify dev locally to test functions before deploying."
+    },
+    {
+      "title": "Trigger deploy via REST API",
+      "language": "typescript",
+      "code": "interface NetlifyBuild {\n  id: string;\n  deploy_id: string;\n  done: boolean;\n  error: string | null;\n  created_at: string;\n}\n\nasync function triggerNetlifyDeploy(\n  siteId: string,\n  authToken: string\n): Promise<NetlifyBuild> {\n  const response = await fetch(\n    `https://api.netlify.com/api/v1/sites/${siteId}/builds`,\n    {\n      method: 'POST',\n      headers: {\n        Authorization: `Bearer ${authToken}`,\n        'Content-Type': 'application/json',\n      },\n    }\n  );\n\n  if (!response.ok) {\n    const errorText = await response.text();\n    throw new Error(`Netlify deploy failed: ${response.status} ${errorText}`);\n  }\n\n  const build = (await response.json()) as NetlifyBuild;\n  console.log(`Deploy triggered. Build ID: ${build.id}`);\n  return build;\n}\n\n// Usage\nawait triggerNetlifyDeploy(\n  process.env.NETLIFY_SITE_ID!,\n  process.env.NETLIFY_AUTH_TOKEN!\n);",
+      "notes": "Use the Netlify REST API to trigger deploys from CI pipelines or external webhooks. You can also create a deploy hook URL in the Netlify UI (Site Settings > Build & Deploy > Build hooks) and POST to it without authentication."
+    }
+  ],
+  "gotchas": [
+    "Netlify Functions have a 10MB unzipped bundle size limit and a 50MB zipped limit — dependencies like puppeteer, sharp, or large ML models will exceed this and cause deploy failures. Use Netlify's Large Media or an external runner (AWS Lambda, Fly.io) for size-intensive functions.",
+    "Build minutes are shared across ALL sites in an account, not per site. A large monorepo or a site with frequent commits can exhaust the free tier's 300 monthly minutes in a few days, blocking all other sites in the account from deploying until the next billing cycle.",
+    "Netlify Forms only intercepts HTML form submissions that Netlify's build bot detects at build time — forms dynamically rendered by JavaScript or submitted via fetch/XHR are invisible to Netlify. You must include a hidden input (`<input type='hidden' name='form-name' value='your-form-name'>`) for JavaScript-submitted forms to be captured.",
+    "Environment variables are NOT exposed to client-side JavaScript by default regardless of framework. Only variables prefixed according to your framework's convention (e.g., NEXT_PUBLIC_ for Next.js, GATSBY_ for Gatsby, VITE_ for Vite) are injected into the browser bundle — all others are server-only."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% uptime SLA on paid plans",
+    "statusPageUrl": "https://netlifystatus.com",
+    "notes": "Netlify serves static assets from a global CDN backed by multiple cloud providers. Serverless functions run in AWS Lambda under the hood. Automatic failover for CDN nodes."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Strong alternative to Vercel with a more generous free tier (125K function invocations vs Vercel's 100GB-hours). Better built-in features for forms and identity. Slightly less polished DX for Next.js but excellent for Gatsby, Hugo, and static sites.",
+  "alternatives": ["vercel", "railway", "fly-io", "cloudflare-workers"],
+  "complementary": ["supabase", "neon", "cloudflare-workers", "resend", "clerk"],
+  "bestFor": "JAMstack and static site deployments with built-in form handling, identity, and continuous deployment from git",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

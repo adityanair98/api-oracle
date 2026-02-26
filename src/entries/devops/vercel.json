@@ -1,0 +1,90 @@
+{
+  "name": "Vercel",
+  "slug": "vercel",
+  "category": "devops",
+  "subcategory": "frontend-deployment",
+  "website": "https://vercel.com",
+  "description": "Vercel is the premier deployment platform for Next.js, React, and frontend frameworks. It provides git-based deployments, instant preview URLs per pull request, a global edge network, and serverless functions — shipping from `git push` to production in seconds.",
+  "useCases": [
+    {
+      "task": "Deploy a Next.js application to production",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add serverless API routes to a frontend app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Set up preview deployments for every pull request",
+      "fit": "perfect"
+    },
+    {
+      "task": "Deploy a static site with global CDN",
+      "fit": "perfect"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at vercel.com",
+      "Create a new project from the dashboard",
+      "Connect your GitHub, GitLab, or Bitbucket repository",
+      "Vercel auto-deploys on every push to your default branch",
+      "Generate an API token at vercel.com/account/tokens and set VERCEL_TOKEN"
+    ],
+    "envVarName": "VERCEL_TOKEN",
+    "codeSnippet": "import { Vercel } from '@vercel/sdk';\n\nconst vercel = new Vercel({ bearerToken: process.env.VERCEL_TOKEN });\n\nconst deployments = await vercel.deployments.getDeployments({});\nconsole.log(deployments);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Hobby plan: unlimited personal projects, 100GB bandwidth/month, 100GB-hours serverless function execution",
+    "startingPrice": "$20/user/month (Pro)",
+    "costPer": "Pro: $40/month for 2 seats, $20/seat thereafter. Additional bandwidth at $0.15/GB above included.",
+    "pricingUrl": "https://vercel.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "100GB bandwidth/month, 100GB-hours serverless execution, 6000 build minutes/month, 12 serverless function regions",
+    "notes": "Serverless functions time out at 10 seconds on the Hobby plan and up to 300 seconds on Pro/Enterprise. Build concurrency is limited to 1 concurrent build on Hobby.",
+    "retryStrategy": "Functions have 10s (Hobby) or 60s (Pro) timeout. Handle timeout errors with retry logic in client."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @vercel/sdk",
+    "importStatement": "import { Vercel } from '@vercel/sdk';",
+    "otherLanguages": ["python", "go"]
+  },
+  "codeExamples": [
+    {
+      "title": "Deploy via CLI (most common)",
+      "language": "typescript",
+      "code": "import { Vercel } from '@vercel/sdk';\n\nconst vercel = new Vercel({\n  bearerToken: process.env.VERCEL_TOKEN!,\n});\n\n// List the 5 most recent deployments for a project\nasync function listDeployments(projectId: string): Promise<void> {\n  const result = await vercel.deployments.getDeployments({\n    projectId,\n    limit: 5,\n  });\n\n  for (const deployment of result.deployments) {\n    console.log(\n      `[${deployment.state}] ${deployment.url} — ${new Date(\n        deployment.createdAt\n      ).toISOString()}`\n    );\n  }\n}\n\nlistDeployments('prj_your_project_id').catch(console.error);",
+      "notes": "Install the Vercel CLI globally with `npm i -g vercel` for one-off deploys. Use `vercel --prod` to deploy to production. The @vercel/sdk is best for programmatic automation — CI pipelines, deployment dashboards, or listing/cancelling deployments."
+    },
+    {
+      "title": "Create a serverless API route (Next.js)",
+      "language": "typescript",
+      "code": "// app/api/hello/route.ts  (Next.js App Router)\nimport { NextRequest, NextResponse } from 'next/server';\n\nexport const runtime = 'edge'; // optional: run on Vercel Edge Network\n\nexport async function GET(req: NextRequest): Promise<NextResponse> {\n  const { searchParams } = new URL(req.url);\n  const name = searchParams.get('name') ?? 'World';\n\n  return NextResponse.json(\n    { message: `Hello, ${name}!`, timestamp: Date.now() },\n    { status: 200 }\n  );\n}\n\nexport async function POST(req: NextRequest): Promise<NextResponse> {\n  const body = await req.json() as { name?: string };\n\n  if (!body.name) {\n    return NextResponse.json({ error: 'name is required' }, { status: 400 });\n  }\n\n  return NextResponse.json({ message: `Hello, ${body.name}!` }, { status: 201 });\n}",
+      "notes": "Placing a file at app/api/*/route.ts automatically becomes a serverless function on Vercel. Set `export const runtime = 'edge'` to run on the global edge network instead of a single region. Edge functions have a 25MB memory limit vs 1GB for standard serverless functions."
+    }
+  ],
+  "gotchas": [
+    "Hobby plan users cannot attach custom domains to production deployments on personal projects — all personal deployments are served from *.vercel.app subdomains only. A Vercel Pro or Teams plan is required to use a custom domain on a team project.",
+    "Serverless functions on the Hobby plan have a hard 10-second execution timeout that cannot be configured. Functions that call slow third-party APIs, run LLM inference, or process large files will be killed at 10 seconds. Upgrading to Pro unlocks up to 300 seconds.",
+    "Each git push to any branch triggers a new deployment — there is no staging environment by default. Use Vercel's built-in Environment targeting (Preview vs Production) and configure branch-to-environment mappings explicitly to avoid accidentally shipping preview code to production.",
+    "Environment variables are scoped per environment (Development, Preview, Production) and must be configured separately for each. A variable added to the Preview environment does NOT automatically appear in Production — forgetting this is a common source of 'undefined env var' bugs after promotion to production."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% uptime SLA on Pro and Enterprise plans",
+    "statusPageUrl": "https://www.vercel-status.com",
+    "notes": "Vercel runs on a multi-region edge network with automatic failover. Static assets and edge functions are distributed globally via Anycast. Serverless function regions are user-selectable on Pro."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Industry standard for Next.js and React deployments. Git push to deploy, instant previews per PR, and a global edge network make it the fastest path from code to production. Serverless functions are first-class citizens.",
+  "alternatives": ["netlify", "railway", "fly-io", "cloudflare-workers"],
+  "complementary": ["neon", "supabase", "planetscale", "upstash", "cloudflare-workers", "resend", "clerk"],
+  "bestFor": "Deploying Next.js, React, and other frontend frameworks with zero-config git deployments, preview environments, and serverless functions",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

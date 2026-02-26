@@ -1,0 +1,87 @@
+{
+  "name": "DigitalOcean Spaces",
+  "slug": "digital-ocean-spaces",
+  "category": "infrastructure",
+  "subcategory": "object-storage",
+  "website": "https://www.digitalocean.com/products/spaces",
+  "description": "DigitalOcean Spaces is S3-compatible object storage with a built-in CDN, flat predictable pricing, and seamless integration for teams already running apps on DigitalOcean.",
+  "useCases": [
+    {
+      "task": "Store and serve user-uploaded files with built-in CDN",
+      "fit": "perfect"
+    },
+    {
+      "task": "Simple object storage for a DigitalOcean-hosted application",
+      "fit": "perfect"
+    },
+    {
+      "task": "Migrate from S3 to a simpler, flat-rate pricing model",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Log in to your DigitalOcean account at cloud.digitalocean.com",
+      "Navigate to Spaces Object Storage and click Create a Space",
+      "Choose a region and bucket name, then click Create Space",
+      "Go to API → Spaces Keys → Generate New Key",
+      "Name the key and copy the Access Key and Secret Key — the secret is shown only once",
+      "Set DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_REGION, and DO_SPACES_BUCKET environment variables"
+    ],
+    "envVarName": "DO_SPACES_KEY",
+    "codeSnippet": "import { S3Client } from '@aws-sdk/client-s3';\n\nconst spacesClient = new S3Client({\n  region: process.env.DO_SPACES_REGION!,\n  endpoint: `https://${process.env.DO_SPACES_REGION}.digitaloceanspaces.com`,\n  credentials: {\n    accessKeyId: process.env.DO_SPACES_KEY!,\n    secretAccessKey: process.env.DO_SPACES_SECRET!,\n  },\n});"
+  },
+  "pricing": {
+    "model": "paid",
+    "freeTier": null,
+    "startingPrice": "$5/month for 250GB storage + 1TB outbound transfer",
+    "costPer": "$0.02/GB additional storage, $0.01/GB additional transfer, $0.004/10K PUT requests, $0.004/10K GET requests after 10K included per month",
+    "pricingUrl": "https://www.digitalocean.com/pricing/spaces-object-storage"
+  },
+  "rateLimits": {
+    "tier": "standard tier",
+    "limit": "No published request rate limits. 1TB transfer/month included. CDN bandwidth is separate from Spaces bandwidth.",
+    "notes": "DigitalOcean does not publish specific per-bucket request rate limits for Spaces. Transfer limits apply to data out from Spaces directly; CDN transfer is metered separately if CDN is enabled.",
+    "retryStrategy": "Use exponential backoff on errors. The S3-compatible API uses standard S3 error codes and retry patterns."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @aws-sdk/client-s3",
+    "importStatement": "import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';",
+    "otherLanguages": ["python", "go", "ruby", "php"]
+  },
+  "codeExamples": [
+    {
+      "title": "Upload to DigitalOcean Spaces",
+      "language": "typescript",
+      "code": "import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';\n\nconst spacesClient = new S3Client({\n  region: process.env.DO_SPACES_REGION!,\n  endpoint: `https://${process.env.DO_SPACES_REGION}.digitaloceanspaces.com`,\n  credentials: {\n    accessKeyId: process.env.DO_SPACES_KEY!,\n    secretAccessKey: process.env.DO_SPACES_SECRET!,\n  },\n});\n\nasync function uploadToSpaces(\n  key: string,\n  body: Buffer | string,\n  contentType: string,\n  isPublic = false\n): Promise<string> {\n  const command = new PutObjectCommand({\n    Bucket: process.env.DO_SPACES_BUCKET!,\n    Key: key,\n    Body: body,\n    ContentType: contentType,\n    ACL: isPublic ? 'public-read' : 'private',\n  });\n\n  await spacesClient.send(command);\n\n  // Public URL format for Spaces\n  const region = process.env.DO_SPACES_REGION!;\n  const bucket = process.env.DO_SPACES_BUCKET!;\n  return `https://${bucket}.${region}.digitaloceanspaces.com/${key}`;\n}\n\n// Usage: upload a publicly readable image\nconst publicUrl = await uploadToSpaces(\n  'images/product-hero.jpg',\n  imageBuffer,\n  'image/jpeg',\n  true\n);\nconsole.log('Uploaded to Spaces:', publicUrl);",
+      "notes": "Unlike S3, Spaces supports ACL (Access Control List) at the object level with public-read. The endpoint URL format is {region}.digitaloceanspaces.com. The bucket name is included in the path, not the subdomain, when constructing the endpoint for the S3 client."
+    },
+    {
+      "title": "Enable CDN for a Spaces bucket and get CDN URL",
+      "language": "typescript",
+      "code": "import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';\n\nconst spacesClient = new S3Client({\n  region: process.env.DO_SPACES_REGION!,\n  endpoint: `https://${process.env.DO_SPACES_REGION}.digitaloceanspaces.com`,\n  credentials: {\n    accessKeyId: process.env.DO_SPACES_KEY!,\n    secretAccessKey: process.env.DO_SPACES_SECRET!,\n  },\n});\n\n// CDN must be enabled on the Space via the DigitalOcean dashboard first.\n// Once enabled, the CDN endpoint follows this pattern:\nfunction getCdnUrl(key: string): string {\n  const bucket = process.env.DO_SPACES_BUCKET!;\n  const region = process.env.DO_SPACES_REGION!;\n  // Default CDN endpoint: {bucket}.{region}.cdn.digitaloceanspaces.com\n  return `https://${bucket}.${region}.cdn.digitaloceanspaces.com/${key}`;\n}\n\nasync function uploadAndGetCdnUrl(\n  key: string,\n  body: Buffer,\n  contentType: string\n): Promise<{ originUrl: string; cdnUrl: string }> {\n  const command = new PutObjectCommand({\n    Bucket: process.env.DO_SPACES_BUCKET!,\n    Key: key,\n    Body: body,\n    ContentType: contentType,\n    ACL: 'public-read',\n    // Set cache headers for CDN\n    CacheControl: 'public, max-age=31536000',\n  });\n\n  await spacesClient.send(command);\n\n  const bucket = process.env.DO_SPACES_BUCKET!;\n  const region = process.env.DO_SPACES_REGION!;\n\n  return {\n    originUrl: `https://${bucket}.${region}.digitaloceanspaces.com/${key}`,\n    cdnUrl: getCdnUrl(key),\n  };\n}\n\n// Usage\nconst { originUrl, cdnUrl } = await uploadAndGetCdnUrl(\n  'assets/logo.png',\n  logoBuffer,\n  'image/png'\n);\nconsole.log('Origin URL:', originUrl);\nconsole.log('CDN URL:', cdnUrl);",
+      "notes": "CDN must be enabled on the Space in the DigitalOcean dashboard before CDN URLs will work. The CDN endpoint is {bucket}.{region}.cdn.digitaloceanspaces.com. Set CacheControl headers at upload time to control how long the CDN caches objects."
+    }
+  ],
+  "gotchas": [
+    "Spaces CDN uses DigitalOcean's CDN network (powered by Cloudflare in some regions, other providers in others). It does NOT automatically integrate with your own Cloudflare DNS — routing traffic through both Spaces CDN and Cloudflare's proxy can cause caching conflicts and unexpected behavior.",
+    "The $5/month flat rate includes 250GB + 1TB transfer per Space (bucket). If you create multiple Spaces, each Space is billed separately at $5/month minimum. There is no account-level pooling of storage or transfer across multiple Spaces.",
+    "Spaces is only available in select DigitalOcean regions: NYC3, SFO3, AMS3, SGP1, FRA1. You cannot create a Space in every DigitalOcean region. Choose your Space region to be geographically close to your Droplets or App Platform apps to avoid inter-region transfer costs.",
+    "Spaces does not support all S3 API features: no S3 Select, no Object Lock, no S3 Batch Operations. Object versioning must be enabled at Space creation time — it cannot be enabled on an existing Space. Review the S3 compatibility guide at docs.digitalocean.com before migrating from S3."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA",
+    "statusPageUrl": "https://status.digitalocean.com",
+    "notes": "Spaces data is replicated across multiple availability zones within the selected region. No cross-region replication is available."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Predictable flat pricing ($5/month for 250GB + 1TB) is its strongest selling point for teams that hate surprise bills. S3-compatible API means existing code works with minimal changes. However, Cloudflare R2 has a better free tier and zero egress fees, making Spaces most compelling for teams already invested in the DigitalOcean ecosystem.",
+  "alternatives": ["aws-s3", "cloudflare-r2", "cloudinary"],
+  "complementary": ["railway"],
+  "bestFor": "Simple object storage with predictable flat pricing for teams already using DigitalOcean infrastructure",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

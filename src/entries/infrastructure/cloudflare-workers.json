@@ -1,0 +1,92 @@
+{
+  "name": "Cloudflare Workers",
+  "slug": "cloudflare-workers",
+  "category": "infrastructure",
+  "subcategory": "edge-compute",
+  "website": "https://workers.cloudflare.com",
+  "description": "Cloudflare Workers is a serverless JavaScript/TypeScript platform that runs at the edge in 300+ global locations with sub-millisecond cold starts, powered by V8 isolates instead of containers.",
+  "useCases": [
+    {
+      "task": "Run TypeScript/JavaScript logic at the edge closest to users",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build API middleware (auth, rate limiting, routing) at CDN level",
+      "fit": "perfect"
+    },
+    {
+      "task": "Transform responses before they reach the client",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run lightweight background tasks triggered by Cloudflare queues",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create a Cloudflare account at cloudflare.com",
+      "Navigate to Workers & Pages in the dashboard",
+      "Install the Wrangler CLI: npm install -g wrangler",
+      "Run wrangler login to authenticate via browser OAuth",
+      "Create a new Worker project: wrangler init my-worker",
+      "Deploy with wrangler deploy — no manual API token needed for CLI deployments",
+      "For CI/CD, create an API token at dash.cloudflare.com/profile/api-tokens with Workers Scripts Edit permission"
+    ],
+    "envVarName": "CLOUDFLARE_API_TOKEN",
+    "codeSnippet": "// Minimal Cloudflare Worker handler (TypeScript)\nexport default {\n  async fetch(request: Request, env: Env): Promise<Response> {\n    return new Response('Hello from the edge!', { status: 200 });\n  },\n};\n\n// Env interface — bindings declared in wrangler.toml\ninterface Env {\n  MY_KV: KVNamespace;\n  MY_BUCKET: R2Bucket;\n  MY_SECRET: string;\n}"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "100,000 requests/day, 10ms CPU time per request, unlimited Workers",
+    "startingPrice": "$5/month (Workers Paid) for 10M requests + 30M CPU milliseconds",
+    "costPer": "$0.50/million requests after 10M included, $0.02/million CPU-ms after 30M included",
+    "pricingUrl": "https://developers.cloudflare.com/workers/platform/pricing/"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "100K req/day (free), 10ms CPU time/request (free). Paid: 10M req/month, 30s max CPU duration per request (Unbound Workers)",
+    "notes": "The 10ms CPU limit on the free plan is CPU execution time, not wall-clock time. I/O (fetch calls, KV reads) does not count toward this limit. Paid Workers Standard gets 30ms CPU; Unbound Workers can run up to 15 minutes.",
+    "retryStrategy": "Workers execute synchronously — implement circuit breakers in worker code. Use Durable Objects for stateful retry logic."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact wrangler @cloudflare/workers-types --save-dev",
+    "importStatement": "export default { async fetch(request: Request, env: Env): Promise<Response> {",
+    "otherLanguages": ["javascript", "rust", "python"]
+  },
+  "codeExamples": [
+    {
+      "title": "Basic Worker with routing",
+      "language": "typescript",
+      "code": "interface Env {\n  API_SECRET: string;\n}\n\nfunction jsonResponse(data: unknown, status = 200): Response {\n  return new Response(JSON.stringify(data), {\n    status,\n    headers: { 'Content-Type': 'application/json' },\n  });\n}\n\nexport default {\n  async fetch(request: Request, env: Env): Promise<Response> {\n    const url = new URL(request.url);\n    const { pathname } = url;\n\n    // Simple router\n    if (pathname === '/api/health' && request.method === 'GET') {\n      return jsonResponse({ status: 'ok', region: request.cf?.colo });\n    }\n\n    if (pathname === '/api/echo' && request.method === 'POST') {\n      const body = await request.json();\n      return jsonResponse({ echo: body });\n    }\n\n    if (pathname.startsWith('/api/')) {\n      return jsonResponse({ error: 'Not found' }, 404);\n    }\n\n    // Pass non-API requests through to origin\n    return fetch(request);\n  },\n};",
+      "notes": "Use new URL(request.url) to parse the URL — the global URL constructor is available in Workers. request.cf contains Cloudflare metadata like the datacenter (colo), country, and ASN. Workers run on every incoming request without a cold start penalty."
+    },
+    {
+      "title": "Worker with R2 storage integration",
+      "language": "typescript",
+      "code": "interface Env {\n  MEDIA_BUCKET: R2Bucket;\n}\n\nexport default {\n  async fetch(request: Request, env: Env): Promise<Response> {\n    const url = new URL(request.url);\n    // Expected path: /media/<object-key>\n    const key = url.pathname.replace('/media/', '');\n\n    if (!key) {\n      return new Response('Missing key', { status: 400 });\n    }\n\n    if (request.method === 'GET') {\n      // Serve file from R2\n      const object = await env.MEDIA_BUCKET.get(key);\n\n      if (!object) {\n        return new Response('Object not found', { status: 404 });\n      }\n\n      const headers = new Headers();\n      object.writeHttpMetadata(headers);\n      headers.set('etag', object.httpEtag);\n      headers.set('Cache-Control', 'public, max-age=31536000');\n\n      return new Response(object.body, { headers });\n    }\n\n    if (request.method === 'PUT') {\n      // Upload file to R2\n      await env.MEDIA_BUCKET.put(key, request.body, {\n        httpMetadata: {\n          contentType: request.headers.get('Content-Type') ?? 'application/octet-stream',\n        },\n      });\n\n      return new Response(JSON.stringify({ key, uploaded: true }), {\n        status: 201,\n        headers: { 'Content-Type': 'application/json' },\n      });\n    }\n\n    return new Response('Method not allowed', { status: 405 });\n  },\n};",
+      "notes": "R2 bindings are declared in wrangler.toml: [[r2_buckets]] binding = 'MEDIA_BUCKET' bucket_name = 'my-bucket'. The env.MEDIA_BUCKET object provides get(), put(), delete(), and list() methods directly — no SDK needed inside a Worker."
+    }
+  ],
+  "gotchas": [
+    "The Workers runtime is NOT Node.js. Many Node.js APIs (fs, path, net, Node's built-in crypto) are not available. Use the Web Crypto API (crypto.subtle) instead of Node's crypto module. Check the Workers compatibility list at developers.cloudflare.com before assuming a Node.js package will work.",
+    "The CPU time limit is 10ms on the free plan per request. This is CPU execution time, not wall-clock time (network I/O and waiting on fetch calls does not count). CPU-intensive operations like image processing, complex regex on large strings, or parsing large JSON payloads will hit this limit and throw an error.",
+    "Workers use V8 isolates, not VMs or containers. There is NO persistent memory between requests. Any module-level variables are reset between requests (or shared unpredictably within the same isolate). Use KV, Durable Objects, or R2 for any state that must persist.",
+    "wrangler dev runs a local simulation that is NOT 100% identical to the production edge environment. Edge cases with headers, TLS fingerprinting, Cloudflare-specific request properties (request.cf), and some Workers APIs behave differently locally. Always test with wrangler dev --remote for critical behavior before deploying."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA (Workers Standard), globally redundant across 300+ PoPs",
+    "statusPageUrl": "https://www.cloudflarestatus.com",
+    "notes": "Requests automatically route to the nearest available Cloudflare datacenter. If one PoP is degraded, traffic is rerouted with automatic failover. Workers deployments are globally propagated within seconds."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Sub-millisecond cold starts (V8 isolates vs containers) make it the fastest serverless platform available. The global network means code runs within milliseconds of any user. The 100K free daily requests is genuinely useful for production traffic. Main limitation is the constrained runtime (not Node.js).",
+  "alternatives": ["vercel", "netlify", "fly-io"],
+  "complementary": ["cloudflare-r2", "upstash", "neon", "supabase"],
+  "bestFor": "Low-latency edge logic: API routing, auth middleware, A/B testing, content transformation — runs in 300+ global locations with near-zero cold starts",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

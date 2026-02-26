@@ -1,0 +1,92 @@
+{
+  "name": "Cloudflare R2",
+  "slug": "cloudflare-r2",
+  "category": "infrastructure",
+  "subcategory": "object-storage",
+  "website": "https://cloudflare.com/products/r2/",
+  "description": "Cloudflare R2 is S3-compatible object storage with zero egress fees, making it the ideal replacement for AWS S3 when serving files to end users where data transfer costs are a concern.",
+  "useCases": [
+    {
+      "task": "Store and serve user-uploaded files without egress fees",
+      "fit": "perfect"
+    },
+    {
+      "task": "Replace AWS S3 for a high-traffic media storage use case",
+      "fit": "perfect"
+    },
+    {
+      "task": "Store static assets served via Cloudflare CDN",
+      "fit": "perfect"
+    },
+    {
+      "task": "Archive backups with low storage costs",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Log in to the Cloudflare dashboard at dash.cloudflare.com",
+      "Navigate to R2 Object Storage and create a bucket",
+      "Note your Account ID from the right sidebar",
+      "Go to R2 → Manage R2 API Tokens → Create API Token",
+      "Select Object Read & Write permissions for the desired bucket(s)",
+      "Copy the Access Key ID and Secret Access Key — the secret is shown only once",
+      "Set CLOUDFLARE_R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ACCOUNT_ID, and R2_BUCKET_NAME environment variables"
+    ],
+    "envVarName": "CLOUDFLARE_R2_ACCESS_KEY_ID",
+    "codeSnippet": "import { S3Client } from '@aws-sdk/client-s3';\n\nconst r2 = new S3Client({\n  region: 'auto',\n  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,\n  credentials: {\n    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,\n    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,\n  },\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "10GB storage/month, 1M Class A operations (writes), 10M Class B operations (reads) — all free forever",
+    "startingPrice": "$0.015/GB-month after free tier",
+    "costPer": "$0.015/GB-month storage, $4.50/million Class A ops, $0.36/million Class B ops. Egress: $0 always.",
+    "pricingUrl": "https://developers.cloudflare.com/r2/pricing/"
+  },
+  "rateLimits": {
+    "tier": "no published hard limits",
+    "limit": "Consistent with S3 performance. No egress rate limiting. Bound by account bandwidth limits.",
+    "notes": "R2 does not publish specific per-bucket request rate limits. Performance is generally consistent with S3. Contact Cloudflare enterprise support for guaranteed throughput requirements.",
+    "retryStrategy": "Use exponential backoff on 429/503 responses. R2 uses the same error codes as S3."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @aws-sdk/client-s3",
+    "importStatement": "import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';",
+    "otherLanguages": ["python", "go", "ruby", "java"]
+  },
+  "codeExamples": [
+    {
+      "title": "Upload to R2 using S3-compatible SDK",
+      "language": "typescript",
+      "code": "import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';\n\nconst r2 = new S3Client({\n  region: 'auto',\n  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,\n  credentials: {\n    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,\n    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,\n  },\n});\n\nasync function uploadToR2(\n  key: string,\n  body: Buffer | string,\n  contentType: string\n): Promise<void> {\n  const command = new PutObjectCommand({\n    Bucket: process.env.R2_BUCKET_NAME!,\n    Key: key,\n    Body: body,\n    ContentType: contentType,\n  });\n\n  await r2.send(command);\n  console.log(`Uploaded ${key} to R2 bucket ${process.env.R2_BUCKET_NAME}`);\n}\n\n// Usage\nawait uploadToR2(\n  'avatars/user-456.png',\n  imageBuffer,\n  'image/png'\n);",
+      "notes": "The only difference from AWS S3 is the endpoint URL and region: 'auto'. The rest of the SDK API is identical. You do NOT need the @aws-sdk/s3-request-presigner separately — it is already compatible with R2."
+    },
+    {
+      "title": "Generate presigned URL for R2 object",
+      "language": "typescript",
+      "code": "import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';\nimport { getSignedUrl } from '@aws-sdk/s3-request-presigner';\n\nconst r2 = new S3Client({\n  region: 'auto',\n  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,\n  credentials: {\n    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,\n    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,\n  },\n});\n\nasync function getR2PresignedUrl(\n  key: string,\n  expiresInSeconds: number = 3600\n): Promise<string> {\n  const command = new GetObjectCommand({\n    Bucket: process.env.R2_BUCKET_NAME!,\n    Key: key,\n  });\n\n  const signedUrl = await getSignedUrl(r2, command, {\n    expiresIn: expiresInSeconds,\n  });\n\n  return signedUrl;\n}\n\n// Usage: temporary download link valid for 15 minutes\nconst url = await getR2PresignedUrl('documents/report-q4.pdf', 900);\nconsole.log('Presigned R2 URL:', url);",
+      "notes": "Presigned URLs for R2 work identically to S3. The signed URL points to the R2 endpoint, not amazonaws.com. If the bucket is configured with a public custom domain, use that domain for public objects instead of presigned URLs."
+    }
+  ],
+  "gotchas": [
+    "R2 does NOT support all S3 features. Notably missing: S3 lifecycle policies with transition between storage classes, S3 Select, S3 Batch Operations, and Object Lock. Check the R2/S3 API compatibility matrix at developers.cloudflare.com before migrating from S3.",
+    "Public bucket access in R2 requires connecting the bucket to a Cloudflare domain (a custom domain or the r2.dev subdomain). Unlike S3, you cannot make individual objects public via ACLs — the entire bucket must be configured for public access via the dashboard.",
+    "R2 stores data in Cloudflare's infrastructure but does NOT support cross-region replication or S3-style Multi-Region Access Points. All data within a bucket is stored in a single Cloudflare datacenter location (though served globally via Cloudflare's CDN when using public access).",
+    "The R2 free tier (10GB) is per-account, not per-bucket. If you use R2 across multiple projects under the same Cloudflare account, they all share the same 10GB monthly free storage allocation."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "Cloudflare does not publish a specific durability SLA for R2, but uses erasure coding across multiple datacenters",
+    "statusPageUrl": "https://www.cloudflarestatus.com",
+    "notes": "R2 is backed by Cloudflare's global network infrastructure. Erasure coding provides data durability. No explicit 11-nines durability guarantee unlike S3, but Cloudflare's infrastructure is generally considered highly reliable."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "The zero egress fee model is genuinely transformative for apps that serve many files to users — can cut storage costs by 80%+ compared to S3 for read-heavy workloads. S3-compatible API means existing code works with minimal changes. Main limitation is missing advanced S3 features and the single-region storage model.",
+  "alternatives": ["aws-s3", "digital-ocean-spaces", "cloudinary"],
+  "complementary": ["cloudflare-workers", "vercel", "netlify"],
+  "bestFor": "Object storage for user-uploaded files and media when egress costs are a concern — zero egress fees make it dramatically cheaper than S3 for high-traffic files",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

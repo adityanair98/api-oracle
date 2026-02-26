@@ -1,0 +1,90 @@
+{
+  "name": "Fly.io",
+  "slug": "fly-io",
+  "category": "devops",
+  "subcategory": "global-app-deployment",
+  "website": "https://fly.io",
+  "description": "Fly.io runs Docker containers on bare-metal hardware physically close to your users across 35+ global regions. Apps automatically deploy to multiple regions, reducing latency for international users without complex infrastructure configuration.",
+  "useCases": [
+    {
+      "task": "Deploy a containerized backend API close to users globally",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run a persistent stateful application (not serverless)",
+      "fit": "perfect"
+    },
+    {
+      "task": "Host a database replica near users to reduce latency",
+      "fit": "perfect"
+    },
+    {
+      "task": "Deploy a long-running WebSocket server",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Install flyctl: curl -L https://fly.io/install.sh | sh",
+      "Authenticate: fly auth login (opens browser)",
+      "In your project directory: fly launch (auto-detects stack, creates fly.toml and Dockerfile if absent)",
+      "Set secrets: fly secrets set KEY=value",
+      "Deploy: fly deploy"
+    ],
+    "envVarName": "FLY_API_TOKEN",
+    "codeSnippet": "# fly.toml — primary app configuration (not a code snippet but the auth/config entry point)\n# Generate a deploy token (scoped to one app) with:\n#   fly tokens create deploy -a your-app-name\n# Then set FLY_API_TOKEN in your CI environment and run:\n#   fly deploy --remote-only\n\n# Dockerfile (multi-stage build for a Node.js app):\n# FROM node:20-alpine AS builder\n# WORKDIR /app\n# COPY package*.json ./\n# RUN npm ci\n# COPY . .\n# RUN npm run build\n#\n# FROM node:20-alpine\n# WORKDIR /app\n# COPY --from=builder /app/dist ./dist\n# COPY --from=builder /app/node_modules ./node_modules\n# EXPOSE 3000\n# CMD [\"node\", \"dist/index.js\"]"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "3 shared-cpu-1x 256MB VMs, 3GB persistent volumes, 160GB outbound bandwidth/month",
+    "startingPrice": "Usage-based: ~$1.94/month for shared-cpu-1x 256MB VM running 24/7",
+    "costPer": "$0.0000008/MB-second RAM, $0.00000012/vCPU-second, $0.15/GB outbound transfer after 160GB",
+    "pricingUrl": "https://fly.io/docs/about/pricing/"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "3 VMs on free tier, each 256MB RAM, shared CPU. No request rate limits — bounded by VM resources.",
+    "notes": "Free tier VMs use shared CPUs that are throttled under high load. There are no API rate limits — throughput is constrained by VM RAM and CPU. Adding more regions costs additional per-VM fees. Free tier VMs do NOT auto-scale to zero.",
+    "retryStrategy": "Fly.io auto-restarts crashed VMs. Use Fly's health checks and graceful shutdown handling for zero-downtime deploys."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @fly-apps/fly-admin",
+    "importStatement": "// Primarily CLI-driven: flyctl. REST API available for automation.",
+    "otherLanguages": ["python", "go", "ruby", "elixir"]
+  },
+  "codeExamples": [
+    {
+      "title": "fly.toml — app configuration",
+      "language": "typescript",
+      "code": "// fly.toml is TOML, not TypeScript — shown here for reference alongside the Node.js app it configures\n//\n// app = 'my-typescript-api'\n// primary_region = 'iad'          # US East (IAD) as primary region\n//\n// [build]\n//   dockerfile = 'Dockerfile'\n//\n// [env]\n//   PORT = '3000'\n//   NODE_ENV = 'production'\n//\n// [http_service]\n//   internal_port = 3000\n//   force_https = true\n//   auto_stop_machines = false    # keep alive; set true to stop on idle\n//   auto_start_machines = true\n//   min_machines_running = 1\n//\n// [[http_service.checks]]\n//   grace_period = '10s'\n//   interval = '30s'\n//   method = 'GET'\n//   path = '/health'\n//   timeout = '5s'\n//\n// [[vm]]\n//   memory = '512mb'\n//   cpu_kind = 'shared'\n//   cpus = 1\n\n// Corresponding Express app (src/index.ts)\nimport express from 'express';\n\nconst app = express();\nconst PORT = Number(process.env.PORT ?? 3000);\n\napp.get('/health', (_req, res) => {\n  res.json({ status: 'ok', region: process.env.FLY_REGION ?? 'local' });\n});\n\napp.get('/api/hello', (_req, res) => {\n  res.json({\n    message: 'Hello from Fly.io!',\n    region: process.env.FLY_REGION,\n    machineId: process.env.FLY_MACHINE_ID,\n  });\n});\n\napp.listen(PORT, '0.0.0.0', () => {\n  console.log(`Listening on 0.0.0.0:${PORT}`);\n});",
+      "notes": "Always bind to 0.0.0.0 (not 127.0.0.1) inside Fly VMs or your server won't be reachable from outside the container. Fly injects FLY_REGION, FLY_APP_NAME, and FLY_MACHINE_ID as environment variables — useful for debugging and routing logic."
+    },
+    {
+      "title": "Dockerfile for Node.js app on Fly.io",
+      "language": "typescript",
+      "code": "// Dockerfile — multi-stage build to minimize final image size\n// Place this in your project root alongside fly.toml\n//\n// ---- Stage 1: Build ----\n// FROM node:20-alpine AS builder\n// WORKDIR /app\n//\n// # Install dependencies first (layer cache optimization)\n// COPY package.json package-lock.json ./\n// RUN npm ci --frozen-lockfile\n//\n// # Copy source and compile TypeScript\n// COPY tsconfig.json ./\n// COPY src ./src\n// RUN npx tsc --project tsconfig.json\n//\n// ---- Stage 2: Production image ----\n// FROM node:20-alpine AS runner\n// WORKDIR /app\n// ENV NODE_ENV=production\n//\n// # Only copy production dependencies\n// COPY package.json package-lock.json ./\n// RUN npm ci --frozen-lockfile --omit=dev\n//\n// # Copy compiled output from build stage\n// COPY --from=builder /app/dist ./dist\n//\n// # Run as non-root user\n// RUN addgroup -S appgroup && adduser -S appuser -G appgroup\n// USER appuser\n//\n// EXPOSE 3000\n// CMD [\"node\", \"dist/index.js\"]\n\n// Verify your image locally before deploying:\n// docker build -t my-app . && docker run -p 3000:3000 my-app\n\n// Deploy to Fly.io:\n// fly deploy --remote-only\n\nexport {}; // make this a valid TypeScript module",
+      "notes": "The --remote-only flag builds the Docker image on Fly's remote builder instead of locally — useful in CI pipelines where Docker is unavailable. Use `fly logs` to tail application logs in real time after deployment. The multi-stage build keeps the final image under 200MB for most Node.js apps."
+    }
+  ],
+  "gotchas": [
+    "Fly.io is NOT serverless — VMs run continuously and you are billed for uptime regardless of request volume. A 256MB shared-cpu VM running 24/7 costs approximately $1.94/month. If you need true scale-to-zero to eliminate idle costs, set `auto_stop_machines = true` in fly.toml, but be aware this introduces cold-start latency on the first request after a stop.",
+    "The free tier has no published SLA and no guaranteed CPU performance. Shared CPUs are burst-limited and can be throttled under high load across the host machine. For latency-sensitive production workloads use performance-1x or higher machine types, which provide dedicated vCPU time.",
+    "Secrets (environment variables containing sensitive values) must be set via the flyctl CLI using `fly secrets set KEY=value` — they cannot be placed in fly.toml (which is committed to git) and are NOT automatically synced on `fly deploy`. Forgetting to set secrets in a new region or after a team member runs `fly deploy` from a fresh machine is a common source of missing-credentials runtime errors.",
+    "Persistent volumes in Fly.io are single-availability-zone and are not replicated. If the physical host or AZ hosting your volume has an outage, your data is inaccessible or at risk of loss. For any data you cannot afford to lose, use a managed database service (Neon, Supabase, PlanetScale) rather than a Fly volume."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime target (no published SLA on free tier)",
+    "statusPageUrl": "https://status.flyio.net",
+    "notes": "Fly.io uses a globally distributed Anycast network with 35+ regions. VMs are automatically restarted on failure. No formal SLA on free or Hobby tiers; enterprise contracts available."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best option for globally distributed apps that need persistent state, WebSockets, or long-running processes. Docker-native deployment model gives maximum flexibility. The global Anycast network genuinely reduces latency for international users. Main friction: CLI-heavy workflow and no managed HTTPS cert automation as polished as Vercel.",
+  "alternatives": ["railway", "vercel", "netlify"],
+  "complementary": ["neon", "upstash", "supabase", "cloudflare-workers"],
+  "bestFor": "Running containerized apps globally close to users, with persistent volumes and full control over the runtime environment",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

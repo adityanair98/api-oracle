@@ -1,0 +1,90 @@
+{
+  "name": "Railway",
+  "slug": "railway",
+  "category": "devops",
+  "subcategory": "app-deployment",
+  "website": "https://railway.app",
+  "description": "Railway is an infrastructure platform that deploys any language or framework — Node.js, Python, Go, Ruby — along with databases like PostgreSQL and Redis, with zero Dockerfile configuration required. Nixpacks auto-detects your stack and handles the rest.",
+  "useCases": [
+    {
+      "task": "Deploy a Node.js, Python, or Go backend server",
+      "fit": "perfect"
+    },
+    {
+      "task": "Host a PostgreSQL or Redis database with automatic backups",
+      "fit": "perfect"
+    },
+    {
+      "task": "Deploy a full-stack app with web server and database together",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run scheduled cron jobs or background workers",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at railway.app (GitHub login recommended)",
+      "Create a new project from the dashboard",
+      "Connect your GitHub repository or use `railway init` from the CLI",
+      "Railway auto-detects your stack with Nixpacks and deploys on every push",
+      "Generate an API token at railway.app/account/tokens and set RAILWAY_TOKEN"
+    ],
+    "envVarName": "RAILWAY_TOKEN",
+    "codeSnippet": "import { RailwayClient } from '@railway/sdk';\n\nconst client = new RailwayClient({ token: process.env.RAILWAY_TOKEN! });\n\nconst services = await client.services.list({\n  projectId: process.env.RAILWAY_PROJECT_ID!,\n});\nconsole.log('Services:', services);"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": null,
+    "startingPrice": "$5/month Hobby plan (includes $5 of usage credit)",
+    "costPer": "$0.000463/vCPU-minute, $0.0000016/MB RAM-minute, $0.20/GB storage",
+    "pricingUrl": "https://railway.app/pricing"
+  },
+  "rateLimits": {
+    "tier": "Hobby plan",
+    "limit": "No hard request rate limits — limits are on compute resources (vCPU, RAM). Deployments are limited to 512MB RAM and 2 vCPU on Hobby plan.",
+    "notes": "Railway bills purely on resource consumption (CPU + RAM per minute). There are no request-count limits. Hobby plan services sleep after inactivity by default, which reduces costs but introduces cold-start latency.",
+    "retryStrategy": "Handle application-level retries. Railway provides health checks and automatic restarts on crash."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @railway/sdk",
+    "importStatement": "import { RailwayClient } from '@railway/sdk';",
+    "otherLanguages": ["python", "go", "ruby", "java"]
+  },
+  "codeExamples": [
+    {
+      "title": "Deploy via railway.json config",
+      "language": "typescript",
+      "code": "// railway.json — place in project root to configure Railway build and deploy\n// This is a JSON config file, not TypeScript, but shown here for reference\n//\n// {\n//   \"$schema\": \"https://railway.app/railway.schema.json\",\n//   \"build\": {\n//     \"builder\": \"NIXPACKS\"\n//   },\n//   \"deploy\": {\n//     \"startCommand\": \"node dist/index.js\",\n//     \"healthcheckPath\": \"/health\",\n//     \"healthcheckTimeout\": 100,\n//     \"restartPolicyType\": \"ON_FAILURE\",\n//     \"restartPolicyMaxRetries\": 10\n//   }\n// }\n\n// Corresponding Express health check endpoint (src/index.ts):\nimport express from 'express';\n\nconst app = express();\nconst PORT = process.env.PORT ?? 3000;\n\napp.get('/health', (_req, res) => {\n  res.json({ status: 'ok', uptime: process.uptime() });\n});\n\napp.listen(PORT, () => {\n  console.log(`Server running on port ${PORT}`);\n});",
+      "notes": "Railway injects a PORT environment variable automatically — always use process.env.PORT rather than hardcoding a port. The railway.json schema supports custom build commands, health checks, and restart policies. Run `railway up` to deploy from your terminal without pushing to git."
+    },
+    {
+      "title": "Query Railway API with SDK",
+      "language": "typescript",
+      "code": "import { RailwayClient } from '@railway/sdk';\n\ninterface ServiceInfo {\n  id: string;\n  name: string;\n}\n\nasync function listProjectServices(\n  projectId: string\n): Promise<ServiceInfo[]> {\n  const client = new RailwayClient({\n    token: process.env.RAILWAY_TOKEN!,\n  });\n\n  const services = await client.services.list({ projectId });\n\n  return services.map((service) => ({\n    id: service.id,\n    name: service.name,\n  }));\n}\n\nasync function triggerRedeployment(\n  serviceId: string,\n  environmentId: string\n): Promise<void> {\n  const client = new RailwayClient({\n    token: process.env.RAILWAY_TOKEN!,\n  });\n\n  await client.deployments.create({\n    serviceId,\n    environmentId,\n  });\n\n  console.log(`Redeployment triggered for service ${serviceId}`);\n}\n\n// List services and redeploy the first one\nconst services = await listProjectServices(process.env.RAILWAY_PROJECT_ID!);\nconsole.log('Services:', services);\n\nif (services.length > 0) {\n  await triggerRedeployment(services[0].id, process.env.RAILWAY_ENVIRONMENT_ID!);\n}",
+      "notes": "The Railway SDK wraps the GraphQL API. Alternatively you can query the Railway GraphQL API directly at https://backboard.railway.app/graphql/v2 with a Bearer token. The SDK is in early development — the GraphQL API is more stable for production automation."
+    }
+  ],
+  "gotchas": [
+    "Railway removed its free tier in 2023. The Hobby plan has a $5/month minimum charge that applies even if your usage is zero — you will be billed $5 regardless of whether you deploy anything. There is no purely free option; plan accordingly before using Railway for side projects or experiments.",
+    "Hobby plan services sleep after a period of inactivity to reduce costs. The first HTTP request after a sleep period incurs a cold-start delay while the container restarts. For production services that require consistent low-latency responses, upgrade to the Pro plan or implement a keep-alive ping (e.g., an uptime monitor hitting /health every 5 minutes).",
+    "Railway does not provide a static outbound IP address on the Hobby plan. If any external service you call (a managed database, a payment provider, or a third-party API) requires IP allowlisting for security, you cannot use Railway's Hobby plan — you must upgrade to Pro to get a dedicated static IP.",
+    "Persistent volumes in Railway attach to a single service instance only. If you scale a service to multiple replicas, each replica gets its own isolated volume — there is no shared filesystem between replicas. Sharing state across replicas requires an external store (Redis, PostgreSQL, S3) rather than the local filesystem."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "Uptime SLA not published; ~99.9% in practice",
+    "statusPageUrl": "https://status.railway.app",
+    "notes": "Railway runs on AWS infrastructure with automatic health checks and container restarts on failure. No published SLA for the Hobby plan. Pro plan customers have access to priority support."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Excellent developer experience for deploying any app without Dockerfile knowledge (uses Nixpacks for auto-detection). Best Heroku alternative with auto-provisioned databases. Loses points for removing free tier and limited documentation for advanced configurations.",
+  "alternatives": ["fly-io", "vercel", "netlify"],
+  "complementary": ["neon", "supabase", "stripe", "resend"],
+  "bestFor": "Deploying full-stack applications with databases, background workers, and cron jobs — the closest modern replacement for Heroku",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

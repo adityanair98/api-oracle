@@ -1,0 +1,89 @@
+{
+  "name": "Vonage",
+  "slug": "vonage",
+  "category": "messaging",
+  "subcategory": "sms-voice",
+  "website": "https://www.vonage.com/communications-apis",
+  "description": "Vonage (formerly Nexmo) is a cloud communications platform offering SMS, voice, video, and authentication APIs. It is Twilio's primary competitor with strong European coverage and a more developer-friendly pricing model, especially for international SMS.",
+  "useCases": [
+    {
+      "task": "Send SMS messages globally with competitive international rates",
+      "fit": "perfect"
+    },
+    {
+      "task": "Implement SMS-based two-factor authentication",
+      "fit": "perfect"
+    },
+    {
+      "task": "Make and receive programmatic voice calls",
+      "fit": "good"
+    },
+    {
+      "task": "Verify phone numbers with OTP",
+      "fit": "perfect"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at vonage.com",
+      "Go to your Dashboard to find your API Key and API Secret",
+      "Purchase a virtual number if needed for two-way SMS",
+      "Set VONAGE_API_KEY and VONAGE_API_SECRET environment variables"
+    ],
+    "envVarName": "VONAGE_API_SECRET",
+    "codeSnippet": "import Vonage from '@vonage/server-sdk';\nconst vonage = new Vonage({\n  apiKey: process.env.VONAGE_API_KEY!,\n  apiSecret: process.env.VONAGE_API_SECRET!,\n});"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "€2 free credit on signup",
+    "startingPrice": "$0.0062 per SMS (US outbound)",
+    "costPer": "Varies by country; €0.0062/SMS outbound US; Voice from $0.013/min",
+    "pricingUrl": "https://www.vonage.com/communications-apis/sms/pricing"
+  },
+  "rateLimits": {
+    "tier": "default",
+    "limit": "30 messages/second (default); can be increased on request",
+    "notes": "Default throughput is higher than Twilio long codes. Rate limits can be increased for high-volume use cases.",
+    "retryStrategy": "Retry with exponential backoff on 429 responses; Vonage returns message-status in response for each sent message"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @vonage/server-sdk",
+    "importStatement": "import Vonage from '@vonage/server-sdk';",
+    "otherLanguages": ["python", "java", "ruby", "php", "dotnet"]
+  },
+  "codeExamples": [
+    {
+      "title": "Send an SMS",
+      "language": "typescript",
+      "code": "import Vonage from '@vonage/server-sdk';\n\nconst vonage = new Vonage({\n  apiKey: process.env.VONAGE_API_KEY!,\n  apiSecret: process.env.VONAGE_API_SECRET!,\n});\n\nconst response = await vonage.sms.send({\n  to: '14155551234',\n  from: 'YourBrand', // Alphanumeric sender ID (not available in all countries)\n  text: 'Your verification code is 382910. Expires in 10 minutes.',\n});\n\nconst result = response.messages[0];\nif (result?.status === '0') {\n  console.log('SMS sent successfully, ID:', result['message-id']);\n} else {\n  console.error('Failed to send SMS:', result?.['error-text']);\n}",
+      "notes": "Alphanumeric sender IDs (like 'YourBrand') are not supported in all countries, including the US. In the US, you must use a virtual number."
+    },
+    {
+      "title": "Phone number verification with Verify API",
+      "language": "typescript",
+      "code": "import Vonage from '@vonage/server-sdk';\n\nconst vonage = new Vonage({\n  apiKey: process.env.VONAGE_API_KEY!,\n  apiSecret: process.env.VONAGE_API_SECRET!,\n});\n\n// Start verification\nconst verifyResponse = await vonage.verify.start({\n  number: '14155551234',\n  brand: 'MyApp',\n});\nconst requestId = verifyResponse.request_id;\nconsole.log('Verification started, request ID:', requestId);\n\n// Later — check the code user entered\nconst checkResponse = await vonage.verify.check(requestId, '1234');\nif (checkResponse.status === '0') {\n  console.log('Phone number verified successfully!');\n}",
+      "notes": "The Verify API handles the entire OTP flow — it sends the code, manages retries, and handles timeouts. Much simpler than building your own verification flow."
+    }
+  ],
+  "gotchas": [
+    "Vonage response objects use string status codes ('0' for success) not HTTP-style integers. Always check message.status === '0' rather than truthy checks, as error codes are also non-zero strings.",
+    "Alphanumeric sender IDs are banned in the US and several other countries. If you need to send from a recognizable name, you'll need to implement this per-country or use a short code.",
+    "The Vonage SDK has had significant breaking changes between major versions. Pin to the exact version you test against and review the changelog before upgrading.",
+    "International SMS prices vary wildly. A message that costs $0.006 in the US can cost $0.15+ in some countries. Always check country-specific pricing before rolling out globally."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.999% uptime commitment on enterprise plans",
+    "statusPageUrl": "https://vonageapiservicestatus.com",
+    "notes": "Vonage has global carrier connections and data centers in multiple regions. Strong European infrastructure makes it a good choice for EU-focused applications."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Solid Twilio alternative with competitive international pricing and good European coverage. The TypeScript SDK is functional but not as polished as Twilio's. Verify API is genuinely excellent for OTP flows. Less community resources and documentation depth than Twilio.",
+  "alternatives": ["twilio"],
+  "complementary": ["resend", "clerk", "stripe"],
+  "bestFor": "SMS and voice communications with competitive international rates, especially for European markets or OTP verification flows",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

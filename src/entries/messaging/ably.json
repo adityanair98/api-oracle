@@ -1,0 +1,94 @@
+{
+  "name": "Ably",
+  "slug": "ably",
+  "category": "messaging",
+  "subcategory": "realtime-messaging",
+  "website": "https://ably.com",
+  "description": "Ably is a real-time messaging platform built for mission-critical applications. Unlike simpler WebSocket services, Ably provides guaranteed message delivery, message history, fan-out at scale, and a pub/sub infrastructure with ordering guarantees — making it suitable for financial data, collaborative tools, and live commerce.",
+  "useCases": [
+    {
+      "task": "Build real-time collaborative features with guaranteed message delivery",
+      "fit": "perfect"
+    },
+    {
+      "task": "Stream live data feeds (stock prices, sports scores, IoT)",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add real-time notifications with message history",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build presence systems showing who is online",
+      "fit": "perfect"
+    },
+    {
+      "task": "Simple real-time notifications for a small app",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at ably.com",
+      "Create an app in the Ably dashboard",
+      "Go to the API Keys section of your app",
+      "Copy the default API key (or create a new scoped key)",
+      "Set ABLY_API_KEY environment variable"
+    ],
+    "envVarName": "ABLY_API_KEY",
+    "codeSnippet": "import Ably from 'ably';\nconst client = new Ably.Realtime({ key: process.env.ABLY_API_KEY! });"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "200 concurrent connections, 6M messages/month",
+    "startingPrice": "$29/month for 500 connections, 30M messages/month",
+    "costPer": "Overage: $2.50 per million additional messages",
+    "pricingUrl": "https://ably.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "200 concurrent connections, 6M messages/month",
+    "notes": "Ably enforces rate limits per channel and per connection. Message size limit is 64KB. History retention varies by plan.",
+    "retryStrategy": "Ably SDK handles reconnection and message continuity automatically. It resumes subscriptions after reconnection and can replay missed messages from history."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact ably",
+    "importStatement": "import Ably from 'ably';",
+    "otherLanguages": ["python", "java", "ruby", "php", "go", "swift", "android", "dotnet"]
+  },
+  "codeExamples": [
+    {
+      "title": "Publish and subscribe to a channel",
+      "language": "typescript",
+      "code": "import Ably from 'ably';\n\nconst client = new Ably.Realtime({ key: process.env.ABLY_API_KEY! });\n\n// Subscribe to a channel\nconst channel = client.channels.get('live-scores');\n\nawait channel.subscribe('score-update', (message) => {\n  const data = message.data as { team: string; score: number };\n  console.log(`${data.team}: ${data.score}`);\n});\n\n// Publish an event\nawait channel.publish('score-update', {\n  team: 'Team A',\n  score: 3,\n});\n\nconsole.log('Subscribed and published');",
+      "notes": "Ably channels are created on first use. The same API key can be used for both publishing and subscribing. For production, use token authentication instead of API keys in client code."
+    },
+    {
+      "title": "Retrieve message history",
+      "language": "typescript",
+      "code": "import Ably from 'ably';\n\nconst client = new Ably.Realtime({ key: process.env.ABLY_API_KEY! });\nconst channel = client.channels.get('live-scores');\n\n// Get last 50 messages from history\nconst historyPage = await channel.history({ limit: 50 });\n\nfor (const message of historyPage.items) {\n  console.log(`[${message.timestamp}] ${message.name}:`, message.data);\n}\n\n// Check if there are more pages\nif (historyPage.hasNext()) {\n  const nextPage = await historyPage.next();\n  console.log('More messages:', nextPage?.items.length);\n}",
+      "notes": "Message history retention depends on your plan. Free tier retains 2 minutes; paid plans can retain up to 72 hours. History is key for catching up after reconnection."
+    }
+  ],
+  "gotchas": [
+    "Never embed API keys in client-side code for production apps. API keys have full publish/subscribe permissions. Use Ably Token Authentication: your server generates short-lived tokens that the client uses instead.",
+    "Message ordering is guaranteed per channel, but only within a single connection. If you have multiple publishers, messages may interleave. Use sequence numbers or vector clocks if strict ordering across publishers matters.",
+    "Ably's free tier (6M messages/month) sounds generous but a busy real-time app can exhaust this quickly. 1 user checking a live feed every 5 seconds = ~500k messages/month.",
+    "Connection state changes (connected, disconnected, suspended) must be handled explicitly. The SDK emits state change events — listen to them and update your UI accordingly."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.999% uptime SLA",
+    "statusPageUrl": "https://status.ably.com",
+    "notes": "Ably provides global message ordering guarantees and exactly-once delivery semantics. Built for financial and mission-critical workloads. 15+ global data centers."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "The most feature-complete real-time messaging platform with genuine delivery guarantees and message history. More complex than Pusher but offers stronger reliability primitives. Excellent TypeScript SDK. Free tier is the most generous in the category. Slightly higher complexity ceiling than Pusher.",
+  "alternatives": ["pusher"],
+  "complementary": ["supabase", "clerk", "stream-chat"],
+  "bestFor": "Mission-critical real-time messaging with guaranteed delivery, message history, and presence — where dropped messages are unacceptable",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

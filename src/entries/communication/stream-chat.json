@@ -1,0 +1,94 @@
+{
+  "name": "Stream Chat",
+  "slug": "stream-chat",
+  "category": "communication",
+  "subcategory": "in-app-chat",
+  "website": "https://getstream.io/chat",
+  "description": "Stream Chat is a managed chat API and SDK that provides everything needed to build in-app messaging: message persistence, user presence, reactions, threads, moderation, search, and pre-built UI components for React, React Native, iOS, and Android. It handles the full chat infrastructure so you can focus on your product.",
+  "useCases": [
+    {
+      "task": "Build in-app chat between users in a marketplace or social app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add team messaging and channels to a SaaS product",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build customer support live chat",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add group messaging with reactions and threads",
+      "fit": "perfect"
+    },
+    {
+      "task": "Simple one-directional notifications",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at getstream.io",
+      "Create a new app in the Stream dashboard",
+      "Copy your App ID, API Key, and API Secret",
+      "Set STREAM_API_KEY and STREAM_API_SECRET environment variables",
+      "Generate user tokens server-side using the StreamChat SDK"
+    ],
+    "envVarName": "STREAM_API_SECRET",
+    "codeSnippet": "import { StreamChat } from 'stream-chat';\nconst serverClient = StreamChat.getInstance(process.env.STREAM_API_KEY!, process.env.STREAM_API_SECRET!);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Up to 1,000 MAU, unlimited messages",
+    "startingPrice": "$399/month for up to 10,000 MAU",
+    "costPer": "Varies by plan; approximately $0.04/MAU above plan limit",
+    "pricingUrl": "https://getstream.io/chat/pricing"
+  },
+  "rateLimits": {
+    "tier": "all tiers",
+    "limit": "Depends on plan; default API rate limits apply per endpoint",
+    "notes": "Stream handles WebSocket connections internally. Message rate limits are per channel. High-volume channels (broadcast) have different limits than 1:1 conversations.",
+    "retryStrategy": "Stream's client SDK handles reconnection and message retry automatically. Use server-side retry for API calls with exponential backoff."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact stream-chat stream-chat-react",
+    "importStatement": "import { StreamChat } from 'stream-chat';\nimport { Chat, Channel, MessageList, MessageInput } from 'stream-chat-react';",
+    "otherLanguages": ["react-native", "swift", "android", "python", "go", "ruby", "php"]
+  },
+  "codeExamples": [
+    {
+      "title": "Create a channel and send a message (server-side)",
+      "language": "typescript",
+      "code": "import { StreamChat } from 'stream-chat';\n\nconst serverClient = StreamChat.getInstance(\n  process.env.STREAM_API_KEY!,\n  process.env.STREAM_API_SECRET!\n);\n\n// Upsert users\nawait serverClient.upsertUsers([\n  { id: 'user-1', name: 'Alice' },\n  { id: 'user-2', name: 'Bob' },\n]);\n\n// Create or get a direct message channel\nconst channel = serverClient.channel('messaging', 'alice-bob-dm', {\n  members: ['user-1', 'user-2'],\n  name: 'Alice & Bob',\n  created_by_id: 'user-1',\n});\nawait channel.create();\n\n// Send a message\nconst response = await channel.sendMessage({\n  text: 'Hey Bob! How are you?',\n  user_id: 'user-1',\n});\n\nconsole.log('Message sent:', response.message.id);",
+      "notes": "Channel IDs must be unique per channel type. 'messaging' is for DMs and group chats; 'livestream' is for broadcast channels. Avoid spaces in channel IDs."
+    },
+    {
+      "title": "React chat component with pre-built UI",
+      "language": "typescript",
+      "code": "import { StreamChat } from 'stream-chat';\nimport { Chat, Channel, ChannelHeader, MessageList, MessageInput, Thread, Window } from 'stream-chat-react';\nimport 'stream-chat-react/dist/css/v2/index.css';\n\nconst client = StreamChat.getInstance(process.env.NEXT_PUBLIC_STREAM_API_KEY!);\n\n// Token generated server-side: serverClient.createToken(userId)\nawait client.connectUser(\n  { id: 'user-1', name: 'Alice' },\n  userToken // Generated server-side\n);\n\nconst channel = client.channel('messaging', 'alice-bob-dm');\n\nexport function ChatUI() {\n  return (\n    <Chat client={client}>\n      <Channel channel={channel}>\n        <Window>\n          <ChannelHeader />\n          <MessageList />\n          <MessageInput />\n        </Window>\n        <Thread />\n      </Channel>\n    </Chat>\n  );\n}",
+      "notes": "The pre-built React components handle everything: message rendering, infinite scroll, file uploads, emoji reactions, thread replies. Fully customizable via CSS and props."
+    }
+  ],
+  "gotchas": [
+    "User tokens MUST be generated server-side using your API Secret. The API Secret must never be exposed in client-side code. Set up a token endpoint that your app calls to authenticate users.",
+    "Stream's pricing jumps significantly at scale ($399/month for 10k MAU). The free tier (1,000 MAU) is only suitable for prototypes. Calculate your MAU carefully before committing.",
+    "Channel queries can return stale data if you're not handling the real-time events correctly. Always listen to channel events (message.new, member.added, etc.) to keep your state current.",
+    "Stream stores all message history on their servers. If you have data residency requirements (GDPR, HIPAA), check which regions are available and configure accordingly."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.999% uptime SLA on Growth and Enterprise plans",
+    "statusPageUrl": "https://status.getstream.io",
+    "notes": "Stream powers billions of messages for companies like Reddit, Duolingo, and Mercari. Global infrastructure with 99.999% SLA on paid plans."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "Best-in-class chat API with the most complete feature set: reactions, threads, read receipts, file uploads, moderation, search, and excellent pre-built React components. TypeScript support is excellent. Pricing is the main drawback — it gets expensive quickly at scale.",
+  "alternatives": ["sendbird", "ably"],
+  "complementary": ["clerk", "pusher", "uploadthing"],
+  "bestFor": "Building full-featured in-app chat with pre-built UI components, message history, and reactions — for marketplaces, social apps, and SaaS",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

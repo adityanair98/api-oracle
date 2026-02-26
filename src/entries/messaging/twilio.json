@@ -1,0 +1,94 @@
+{
+  "name": "Twilio",
+  "slug": "twilio",
+  "category": "messaging",
+  "subcategory": "sms-voice-whatsapp",
+  "website": "https://www.twilio.com",
+  "description": "Twilio is the leading cloud communications platform, providing APIs for SMS, voice calls, WhatsApp, email (via SendGrid), and video. It is the industry standard for programmatic communications and powers messaging features for millions of applications worldwide.",
+  "useCases": [
+    {
+      "task": "Send SMS notifications and alerts to users",
+      "fit": "perfect"
+    },
+    {
+      "task": "Implement two-factor authentication via SMS",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send WhatsApp messages programmatically",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build voice call systems and IVR menus",
+      "fit": "perfect"
+    },
+    {
+      "task": "Send transactional emails",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "basic_auth",
+    "setupSteps": [
+      "Sign up at twilio.com",
+      "Verify your phone number",
+      "Go to the Console Dashboard to find your Account SID and Auth Token",
+      "Purchase a phone number from the Twilio Console (required for sending SMS)",
+      "Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables"
+    ],
+    "envVarName": "TWILIO_AUTH_TOKEN",
+    "codeSnippet": "import twilio from 'twilio';\nconst client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);"
+  },
+  "pricing": {
+    "model": "usage_based",
+    "freeTier": "Free trial with $15 credit (unverified numbers only)",
+    "startingPrice": "$0.0079 per SMS (US); phone number $1.15/month",
+    "costPer": "$0.0079/SMS outbound (US); $0.0085 inbound; voice $0.014/min",
+    "pricingUrl": "https://www.twilio.com/en-us/sms/pricing/us"
+  },
+  "rateLimits": {
+    "tier": "default",
+    "limit": "1 SMS/second per long code number; 100 SMS/second with short codes",
+    "notes": "Long code numbers (regular phone numbers) are rate-limited. For high-volume campaigns, use short codes or Twilio Messaging Services with multiple numbers.",
+    "retryStrategy": "Use Twilio Messaging Services for automatic throughput scaling; implement exponential backoff for 429 responses"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact twilio",
+    "importStatement": "import twilio from 'twilio';",
+    "otherLanguages": ["python", "java", "ruby", "php", "csharp", "go"]
+  },
+  "codeExamples": [
+    {
+      "title": "Send an SMS",
+      "language": "typescript",
+      "code": "import twilio from 'twilio';\n\nconst client = twilio(\n  process.env.TWILIO_ACCOUNT_SID!,\n  process.env.TWILIO_AUTH_TOKEN!\n);\n\nconst message = await client.messages.create({\n  body: 'Your verification code is: 847291',\n  from: process.env.TWILIO_PHONE_NUMBER!, // Your Twilio number\n  to: '+14155551234', // Recipient number (E.164 format)\n});\n\nconsole.log('Message SID:', message.sid);\nconsole.log('Status:', message.status);",
+      "notes": "Phone numbers must be in E.164 format (+[country code][number]). During trial, you can only send to verified phone numbers."
+    },
+    {
+      "title": "Send a WhatsApp message",
+      "language": "typescript",
+      "code": "import twilio from 'twilio';\n\nconst client = twilio(\n  process.env.TWILIO_ACCOUNT_SID!,\n  process.env.TWILIO_AUTH_TOKEN!\n);\n\nconst message = await client.messages.create({\n  body: 'Hello from WhatsApp! Your order #1234 has shipped.',\n  from: 'whatsapp:+14155238886', // Twilio WhatsApp sandbox number\n  to: 'whatsapp:+14155551234',\n});\n\nconsole.log('WhatsApp message SID:', message.sid);",
+      "notes": "Use the Twilio Sandbox for WhatsApp during development. For production, submit a WhatsApp Business Application through Twilio. Recipients must opt-in first for business-initiated messages."
+    }
+  ],
+  "gotchas": [
+    "Trial accounts can only send SMS/calls to verified phone numbers. You must verify each recipient's number in the console before testing — this trips up every developer during initial setup.",
+    "US long-code numbers require A2P 10DLC registration for application-to-person messaging. Without registration, messages may be filtered or blocked by carriers. This process takes 1-2 weeks.",
+    "WhatsApp business-initiated messages require pre-approved message templates. You cannot send free-form messages to users who haven't messaged you in the last 24 hours.",
+    "Twilio costs add up quickly at scale. SMS prices vary significantly by country. Always calculate your expected monthly cost before committing."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.95% uptime SLA",
+    "statusPageUrl": "https://status.twilio.com",
+    "notes": "Twilio has global carrier relationships for high deliverability. They provide delivery receipts and status webhooks for every message."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "The gold standard for programmatic communications. Excellent TypeScript SDK, comprehensive documentation, and unmatched feature breadth (SMS, voice, WhatsApp, video). The regulatory requirements (10DLC, WhatsApp templates) are industry-wide, not Twilio-specific. Slight deduction for pricing complexity.",
+  "alternatives": ["vonage"],
+  "complementary": ["resend", "stripe", "clerk"],
+  "bestFor": "Programmatic SMS, voice, and WhatsApp messaging with global carrier reach and the most mature communications API",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

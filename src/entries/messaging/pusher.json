@@ -1,0 +1,94 @@
+{
+  "name": "Pusher Channels",
+  "slug": "pusher",
+  "category": "messaging",
+  "subcategory": "realtime-websockets",
+  "website": "https://pusher.com/channels",
+  "description": "Pusher Channels is a hosted WebSocket service that enables real-time bidirectional communication between servers and clients. It abstracts away WebSocket infrastructure complexity, making it trivial to add live updates, notifications, collaborative features, and real-time dashboards to any web or mobile application.",
+  "useCases": [
+    {
+      "task": "Add real-time notifications to a web application",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build a live chat feature in a web app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Push live dashboard updates without polling",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add collaborative editing or presence indicators",
+      "fit": "good"
+    },
+    {
+      "task": "Full-featured chat application with history",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at pusher.com",
+      "Create a new Channels app in the dashboard",
+      "Select your cluster (region closest to your users)",
+      "Copy App ID, Key, Secret, and Cluster from the app's API Keys tab",
+      "Set PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER environment variables"
+    ],
+    "envVarName": "PUSHER_SECRET",
+    "codeSnippet": "import Pusher from 'pusher';\nconst pusher = new Pusher({\n  appId: process.env.PUSHER_APP_ID!,\n  key: process.env.PUSHER_KEY!,\n  secret: process.env.PUSHER_SECRET!,\n  cluster: process.env.PUSHER_CLUSTER!,\n  useTLS: true,\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "200 max connections, 200k messages/day, unlimited channels",
+    "startingPrice": "$49/month for 500 connections, 3M messages/day",
+    "costPer": "Varies by plan; no per-message charge within plan limits",
+    "pricingUrl": "https://pusher.com/channels/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "200 concurrent connections, 200,000 messages/day, 100 channels per connection",
+    "notes": "Message size limit is 10KB. Exceeding limits causes messages to be dropped. Monitor usage in the dashboard.",
+    "retryStrategy": "Pusher client SDK handles reconnection automatically with exponential backoff. Server-side publishing failures should be retried with backoff."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact pusher pusher-js",
+    "importStatement": "import Pusher from 'pusher'; // Server\nimport PusherClient from 'pusher-js'; // Client (browser)",
+    "otherLanguages": ["python", "ruby", "php", "java", "go", "swift", "android"]
+  },
+  "codeExamples": [
+    {
+      "title": "Trigger an event from the server",
+      "language": "typescript",
+      "code": "// Server-side: trigger an event\nimport Pusher from 'pusher';\n\nconst pusher = new Pusher({\n  appId: process.env.PUSHER_APP_ID!,\n  key: process.env.PUSHER_KEY!,\n  secret: process.env.PUSHER_SECRET!,\n  cluster: process.env.PUSHER_CLUSTER!,\n  useTLS: true,\n});\n\n// Trigger 'new-order' event on 'orders' channel\nawait pusher.trigger('orders', 'new-order', {\n  orderId: 'order_123',\n  customerName: 'Jane Smith',\n  amount: 49.99,\n});\n\nconsole.log('Event triggered');",
+      "notes": "Channel names can be anything. Event names are arbitrary strings. Both server and client must use the same channel name and event name."
+    },
+    {
+      "title": "Subscribe and receive events in the browser",
+      "language": "typescript",
+      "code": "// Client-side (browser/React)\nimport PusherClient from 'pusher-js';\n\nconst pusher = new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {\n  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,\n});\n\nconst channel = pusher.subscribe('orders');\n\nchannel.bind('new-order', (data: { orderId: string; customerName: string; amount: number }) => {\n  console.log('New order received:', data);\n  // Update UI in real-time\n});\n\n// Clean up on component unmount\nreturn () => {\n  channel.unbind_all();\n  pusher.unsubscribe('orders');\n};",
+      "notes": "Use NEXT_PUBLIC_ prefix for Pusher Key and Cluster in Next.js (they're safe to expose client-side). Never expose your Pusher Secret in the browser."
+    }
+  ],
+  "gotchas": [
+    "The Pusher Key (public) is safe to expose in the browser, but the Pusher Secret must stay server-side only. A common mistake is exposing the Secret in Next.js client components via NEXT_PUBLIC_ env vars.",
+    "Message size is limited to 10KB. If you need to send large payloads (e.g., full documents), send an event with a reference ID and have the client fetch the full data from your API.",
+    "Pusher does not persist messages. If a client is disconnected when a message is triggered, they miss it. For guaranteed delivery, implement a separate persistence layer (database) and allow clients to catch up on reconnection.",
+    "The free tier's 200 concurrent connection limit is per-app, not per-user. A single user with multiple browser tabs counts as multiple connections."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.999% uptime SLA on paid plans",
+    "statusPageUrl": "https://status.pusher.com",
+    "notes": "Pusher has multiple global clusters (us-east, eu-west, ap-southeast, etc.). Choose the cluster nearest to your users for lowest latency."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best-in-class ease of use for real-time WebSocket messaging. Setup takes minutes, documentation is excellent, and the free tier is generous for prototyping. Primary limitation is lack of message persistence. For full-featured chat, Stream or Ably may be better choices.",
+  "alternatives": ["ably"],
+  "complementary": ["supabase", "clerk", "resend"],
+  "bestFor": "Adding real-time events and live updates to web apps without managing WebSocket infrastructure",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

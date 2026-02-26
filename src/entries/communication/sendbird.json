@@ -1,0 +1,85 @@
+{
+  "name": "Sendbird",
+  "slug": "sendbird",
+  "category": "communication",
+  "subcategory": "in-app-chat",
+  "website": "https://sendbird.com",
+  "description": "Sendbird is an enterprise-grade in-app messaging and chat platform with SDKs for iOS, Android, React, and React Native. It provides a complete chat infrastructure including message persistence, push notifications, moderation, file sharing, and AI-powered features for healthcare, fintech, and marketplace applications.",
+  "useCases": [
+    {
+      "task": "Build HIPAA-compliant in-app messaging for healthcare",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add in-app chat to a mobile marketplace (buyer/seller messaging)",
+      "fit": "perfect"
+    },
+    {
+      "task": "Build customer support chat with agent handoff",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add group messaging to a mobile social app",
+      "fit": "perfect"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at sendbird.com",
+      "Create an application in the Sendbird Dashboard",
+      "Copy your App ID from the dashboard",
+      "Generate an API token under Settings > Application > API Tokens",
+      "Set SENDBIRD_APP_ID and SENDBIRD_API_TOKEN environment variables",
+      "Generate user session tokens server-side for client authentication"
+    ],
+    "envVarName": "SENDBIRD_API_TOKEN",
+    "codeSnippet": "// Server-side API calls use API token in header\nconst response = await fetch(`https://api-${process.env.SENDBIRD_APP_ID}.sendbird.com/v3/users`, {\n  headers: { 'Api-Token': process.env.SENDBIRD_API_TOKEN! },\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Up to 1,000 MAU, 5GB storage, core features",
+    "startingPrice": "$399/month for Starter plan (higher MAU limits)",
+    "costPer": "Custom enterprise pricing for large deployments; $0.05+ per MAU on standard plans",
+    "pricingUrl": "https://sendbird.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "all tiers",
+    "limit": "Platform API: 20 requests/second (default); can be increased",
+    "notes": "Sendbird has separate rate limits for the Platform API (server-side) and client SDK. High-volume use cases should request increased limits.",
+    "retryStrategy": "Client SDKs handle reconnection automatically. Platform API calls should use exponential backoff on 429 responses."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @sendbird/chat",
+    "importStatement": "import SendbirdChat from '@sendbird/chat';\nimport { GroupChannelModule } from '@sendbird/chat/groupChannel';",
+    "otherLanguages": ["swift", "android", "react-native", "flutter", "unity"]
+  },
+  "codeExamples": [
+    {
+      "title": "Initialize Sendbird and connect user",
+      "language": "typescript",
+      "code": "import SendbirdChat from '@sendbird/chat';\nimport { GroupChannelModule } from '@sendbird/chat/groupChannel';\n\nconst sb = SendbirdChat.init({\n  appId: process.env.NEXT_PUBLIC_SENDBIRD_APP_ID!,\n  modules: [new GroupChannelModule()],\n});\n\n// accessToken generated server-side\nawait sb.connect('user-123', accessToken);\n\nconsole.log('Connected as:', sb.currentUser?.nickname);\n\n// Create a group channel\nconst { groupChannel } = sb.groupChannel;\nconst channel = await groupChannel.createChannel({\n  invitedUserIds: ['user-123', 'user-456'],\n  isDistinct: true, // Reuse same channel for same pair of users\n  name: 'Support Chat',\n});",
+      "notes": "User access tokens must be generated server-side using the Platform API or SDK. isDistinct: true means Sendbird reuses the same channel URL for the same set of members."
+    }
+  ],
+  "gotchas": [
+    "Sendbird's pricing tier jumps sharply from free (1k MAU) to paid ($399/month). There is no intermediate tier. This makes it difficult to test with real users before committing to a paid plan.",
+    "The mobile SDKs (iOS/Android) are mature and well-maintained, but the web JavaScript SDK has historically lagged. Check the changelog for the @sendbird/chat package before upgrading.",
+    "Push notifications require setting up both APNs (iOS) and FCM (Android) credentials in the Sendbird dashboard — two separate integration steps that often get overlooked.",
+    "Sendbird's compliance features (HIPAA BAA, GDPR DPA) are only available on Enterprise plans. If you need these for healthcare or EU data, factor the enterprise cost into your planning."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% uptime SLA on paid plans",
+    "statusPageUrl": "https://status.sendbird.com",
+    "notes": "Sendbird processes over 8 billion messages per month for enterprises. Dedicated instances available for Enterprise customers with data residency requirements."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Enterprise-grade chat platform with excellent mobile SDK quality and compliance features. Strong for healthcare and fintech. More setup complexity than Stream Chat and the pricing cliff from free to paid is steep. Best choice when mobile-first chat with compliance requirements is the priority.",
+  "alternatives": ["stream-chat"],
+  "complementary": ["clerk", "onesignal", "twilio"],
+  "bestFor": "Enterprise in-app messaging for mobile apps, especially healthcare, fintech, and marketplaces requiring compliance (HIPAA, GDPR)",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

@@ -65,7 +65,7 @@ describe("find_best_api tool (via findApis)", () => {
     const breakdown = results[0]!.scoreBreakdown;
     expect(breakdown["useCaseFit"]).toBeDefined();
     expect(breakdown["qualityScore"]).toBeDefined();
-    expect(breakdown["devExperience"]).toBeDefined();
+    expect(breakdown["developerExperience"]).toBeDefined();
     expect(breakdown["pricingFit"]).toBeDefined();
     expect(breakdown["total"]).toBeDefined();
   });

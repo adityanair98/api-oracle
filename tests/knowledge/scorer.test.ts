@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import { _setDbForTesting, closeDb, insertEntry } from "../../src/knowledge/db.js";
 import { rankEntries, scoreEntry, DEFAULT_WEIGHTS } from "../../src/knowledge/scorer.js";
 import { findApis } from "../../src/knowledge/search.js";
+import { resetTfIdfEngine } from "../../src/knowledge/tfidf.js";
 import type { ApiEntry } from "../../src/knowledge/schema.js";
 import { validateEntry } from "../../src/knowledge/schema.js";
 
@@ -50,6 +51,7 @@ describe("Scorer", () => {
 
   afterEach(() => {
     closeDb();
+    resetTfIdfEngine();
   });
 
   it("loaded all 35 entries for testing", () => {
@@ -121,9 +123,9 @@ describe("Scorer", () => {
     );
     // All email APIs support Python, so they should still rank high
     expect(pythonResults.length).toBeGreaterThan(0);
-    // Verify devExperience score is computed
+    // Verify developerExperience score is computed
     for (const result of pythonResults) {
-      expect(result.scoreBreakdown["devExperience"]).toBeDefined();
+      expect(result.scoreBreakdown["developerExperience"]).toBeDefined();
     }
   });
 
@@ -139,8 +141,10 @@ describe("Scorer", () => {
     expect(result.score).toBeLessThanOrEqual(1);
     expect(result.scoreBreakdown["useCaseFit"]).toBeDefined();
     expect(result.scoreBreakdown["qualityScore"]).toBeDefined();
-    expect(result.scoreBreakdown["devExperience"]).toBeDefined();
+    expect(result.scoreBreakdown["developerExperience"]).toBeDefined();
     expect(result.scoreBreakdown["pricingFit"]).toBeDefined();
+    expect(result.scoreBreakdown["keywordRelevance"]).toBeDefined();
+    expect(result.scoreBreakdown["recencyBonus"]).toBeDefined();
     expect(result.scoreBreakdown["total"]).toBeDefined();
   });
 
@@ -164,12 +168,14 @@ describe("Scorer", () => {
     expect(results).toEqual([]);
   });
 
-  it("DEFAULT_WEIGHTS sum to approximately 1.0", () => {
+  it("SCORING_WEIGHTS sum to approximately 1.0", () => {
     const sum =
       DEFAULT_WEIGHTS.useCaseFit +
       DEFAULT_WEIGHTS.qualityScore +
-      DEFAULT_WEIGHTS.devExperience +
-      DEFAULT_WEIGHTS.pricingFit;
+      DEFAULT_WEIGHTS.developerExperience +
+      DEFAULT_WEIGHTS.pricingFit +
+      DEFAULT_WEIGHTS.keywordRelevance +
+      DEFAULT_WEIGHTS.recencyBonus;
     expect(Math.abs(sum - 1.0)).toBeLessThan(0.001);
   });
 

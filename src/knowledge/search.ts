@@ -6,10 +6,11 @@
  */
 
 import type { ApiEntry } from "./schema.js";
-import { searchByText, getAllEntries, getBySlug, getByCategory } from "./db.js";
-import { rankEntries } from "./scorer.js";
+import { getAllEntries, getBySlug, getByCategory } from "./db.js";
+import { rankEntries, computeConfidence, confidenceLabel } from "./scorer.js";
 import type { ScoringContext } from "./scorer.js";
 import { expandQuery, detectCategory, detectPhrases } from "./synonyms.js";
+import { getTfIdfEngine } from "./tfidf.js";
 import { createLogger } from "../utils/logger.js";
 
 const logger = createLogger("search");
@@ -24,6 +25,10 @@ export interface RankedResult {
   entry: ApiEntry;
   score: number;
   scoreBreakdown: Record<string, number>;
+  /** Confidence in this recommendation (0-1); only set on the top result */
+  confidence?: number;
+  /** Human-readable confidence label: "high" | "medium" | "low" */
+  confidenceLabel?: "high" | "medium" | "low";
 }
 
 /**
@@ -78,12 +83,21 @@ export function findApis(
     detectedConfidence,
   };
 
-  // Step 4: Build candidate pool
-  // Run text search on original query first
-  let candidates: ApiEntry[] = searchByText(trimmedQuery);
+  // Step 4: Build candidate pool via TF-IDF index
+  // Lazily build the index from all entries on first call
+  const all = getAllEntries();
+  const engine = getTfIdfEngine();
+  if (!engine.isBuilt) {
+    engine.build(all);
+    logger.debug("TF-IDF index built", { entryCount: engine.size });
+  }
+
+  // TF-IDF search on expanded query (broader recall than LIKE)
+  const tfIdfCandidates = engine.search(expandedQuery, topN * 8);
+  let candidates: ApiEntry[] = tfIdfCandidates;
   const seenSlugs = new Set(candidates.map((e) => e.slug));
 
-  // If we have a high-confidence category, add all entries in that category
+  // Also include all entries in the detected category (high-signal candidates)
   if (detectedCategory && detectedConfidence >= 0.4) {
     const categoryEntries = getByCategory(detectedCategory);
     for (const entry of categoryEntries) {
@@ -94,12 +108,11 @@ export function findApis(
     }
   }
 
-  // If too few candidates, broaden to all entries
+  // Safety net: if still fewer candidates than requested, add remaining entries
   if (candidates.length < topN) {
-    logger.debug("Broadening to all entries — too few candidates", {
+    logger.debug("Broadening to all entries — too few TF-IDF candidates", {
       candidateCount: candidates.length,
     });
-    const all = getAllEntries();
     for (const entry of all) {
       if (!seenSlugs.has(entry.slug)) {
         candidates.push(entry);
@@ -118,10 +131,18 @@ export function findApis(
     scoringContext
   );
 
+  // Step 6: Attach confidence to top result
+  if (results.length > 0 && results[0]) {
+    const conf = computeConfidence(results[0], detectedCategory, detectedConfidence, results);
+    results[0].confidence = conf;
+    results[0].confidenceLabel = confidenceLabel(conf);
+  }
+
   logger.debug("findApis results", {
     candidateCount: candidates.length,
     resultCount: results.length,
     topSlug: results[0]?.entry.slug,
+    confidence: results[0]?.confidence,
     detectedCategory,
   });
 

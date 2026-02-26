@@ -9,6 +9,7 @@ import { readdirSync, statSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { _setDbForTesting, closeDb, insertEntry } from "../../src/knowledge/db.js";
+import { resetTfIdfEngine } from "../../src/knowledge/tfidf.js";
 import { findApis } from "../../src/knowledge/search.js";
 import { validateEntry } from "../../src/knowledge/schema.js";
 import type { ApiEntry } from "../../src/knowledge/schema.js";
@@ -44,6 +45,7 @@ describe("find_best_api tool (via findApis)", () => {
 
   afterEach(() => {
     closeDb();
+    resetTfIdfEngine();
   });
 
   it("returns recommendation for email task", () => {

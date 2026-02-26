@@ -1,0 +1,90 @@
+{
+  "name": "Nango",
+  "slug": "nango",
+  "category": "integration",
+  "subcategory": "oauth-integrations",
+  "website": "https://www.nango.dev",
+  "description": "Nango is an open-source platform for building and managing OAuth integrations with 200+ APIs. It handles the OAuth flow, token refresh, credential storage, and provides a unified API to make authenticated requests to third-party services on behalf of your users.",
+  "useCases": [
+    {
+      "task": "Add 'Connect your GitHub/Salesforce/HubSpot' integration to your app",
+      "fit": "perfect"
+    },
+    {
+      "task": "Store and auto-refresh OAuth tokens for users' connected accounts",
+      "fit": "perfect"
+    },
+    {
+      "task": "Sync data from third-party APIs into your database on a schedule",
+      "fit": "good"
+    },
+    {
+      "task": "Build a white-label integration marketplace for your SaaS product",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create an account at app.nango.dev",
+      "Create a new environment (dev or prod) in the Nango dashboard",
+      "Copy the secret key from Settings → Secret Key",
+      "Set the NANGO_SECRET_KEY environment variable in your backend",
+      "Configure integrations in the dashboard: add each OAuth provider (e.g., GitHub, Salesforce) with its client ID and client secret obtained from that provider's developer portal",
+      "Install the Nango Node SDK: npm install --save-exact @nangohq/node"
+    ],
+    "envVarName": "NANGO_SECRET_KEY",
+    "codeSnippet": "import Nango from '@nangohq/node';\n\nconst nango = new Nango({ secretKey: process.env.NANGO_SECRET_KEY });\n\n// Retrieve a connection's access token to make API calls on behalf of a user\nconst connection = await nango.getConnection('github', 'user-123');\nconst accessToken = connection.credentials.access_token;"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: unlimited OAuth connections, 100 syncs/month, community support",
+    "startingPrice": "$250/month (Scale) for unlimited syncs, SLAs, and priority support",
+    "costPer": null,
+    "pricingUrl": "https://www.nango.dev/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "Unlimited OAuth connections on all plans. Syncs (scheduled data pulls from third-party APIs) limited to 100/month on the free tier.",
+    "notes": "Nango proxies API requests through its infrastructure, so rate limits of the underlying third-party API still apply. Nango itself does not impose additional rate limits on proxy API calls. Token refresh is automatic and does not count against limits.",
+    "retryStrategy": "Nango handles OAuth token refresh automatically on every request. For sync failures, configure retry logic in the nango.yaml sync definition. For proxy calls, implement retry with exponential backoff in your application code since Nango passes through API errors."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @nangohq/node",
+    "importStatement": "import Nango from '@nangohq/node';",
+    "otherLanguages": ["javascript", "python"]
+  },
+  "codeExamples": [
+    {
+      "title": "Initiate OAuth flow and retrieve access token",
+      "language": "typescript",
+      "code": "// --- Frontend: initiate the OAuth connection for a user ---\n// Install the frontend SDK: npm install --save-exact @nangohq/frontend\nimport Nango from '@nangohq/frontend';\n\nconst nango = new Nango();\n\nasync function connectGitHub(userId: string): Promise<void> {\n  // Your backend endpoint generates a session token for this user\n  const response = await fetch('/api/nango/session', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ userId }),\n  });\n  const { sessionToken } = await response.json() as { sessionToken: string };\n\n  // Opens the OAuth popup — Nango handles the full OAuth flow\n  await nango.auth('github', sessionToken);\n  console.log('GitHub connected successfully!');\n}\n\n// --- Backend: generate a session token and use the connection ---\nimport Nango from '@nangohq/node';\n\nconst nango = new Nango({ secretKey: process.env.NANGO_SECRET_KEY });\n\n// Generate a session token (call this from your /api/nango/session endpoint)\nasync function createNangoSession(userId: string): Promise<string> {\n  const session = await nango.createConnectSession({\n    end_user: { id: userId },\n    // Optionally restrict which integrations the user can connect\n    allowed_integrations: ['github'],\n  });\n  return session.data.token;\n}\n\n// After the user connects, retrieve their access token to make API calls\nasync function getGitHubAccessToken(userId: string): Promise<string> {\n  const connection = await nango.getConnection('github', userId);\n  // Nango automatically refreshes the token if it has expired\n  const accessToken = (connection.credentials as { access_token: string }).access_token;\n  return accessToken;\n}\n\n// Use the token to call the GitHub API directly\nconst token = await getGitHubAccessToken('user-123');\nconst ghResponse = await fetch('https://api.github.com/user', {\n  headers: { Authorization: `Bearer ${token}` },\n});\nconst githubUser = await ghResponse.json();\nconsole.log('GitHub user:', githubUser);",
+      "notes": "The connection_id (second argument to getConnection) should be your own user's ID — this is how Nango maps stored tokens back to your users. Use consistent IDs (e.g., your database user UUID) so you can always retrieve the right token. Nango automatically refreshes expired tokens on every getConnection() call."
+    },
+    {
+      "title": "Make a proxied API call on behalf of a user",
+      "language": "typescript",
+      "code": "import Nango from '@nangohq/node';\n\nconst nango = new Nango({ secretKey: process.env.NANGO_SECRET_KEY });\n\ninterface GitHubRepo {\n  id: number;\n  name: string;\n  full_name: string;\n  private: boolean;\n  html_url: string;\n  stargazers_count: number;\n}\n\n// Use nango.proxy() to make authenticated API calls without managing tokens\nasync function getUserRepos(userId: string): Promise<GitHubRepo[]> {\n  const response = await nango.proxy<GitHubRepo[]>({\n    providerConfigKey: 'github',  // The integration name in your Nango dashboard\n    connectionId: userId,          // Your user's ID (maps to their stored token)\n    method: 'GET',\n    endpoint: '/user/repos',\n    params: {\n      sort: 'updated',\n      per_page: '30',\n    },\n  });\n\n  return response.data;\n}\n\n// Example: list repos for a connected GitHub user\nconst repos = await getUserRepos('user-123');\nconsole.log(`Found ${repos.length} repositories:`);\nfor (const repo of repos) {\n  console.log(`  - ${repo.full_name} (${repo.stargazers_count} stars)`);\n}\n\n// You can also make POST requests via proxy\nasync function createIssue(\n  userId: string,\n  owner: string,\n  repoName: string,\n  title: string,\n  body: string\n): Promise<void> {\n  await nango.proxy({\n    providerConfigKey: 'github',\n    connectionId: userId,\n    method: 'POST',\n    endpoint: `/repos/${owner}/${repoName}/issues`,\n    data: { title, body },\n  });\n}",
+      "notes": "nango.proxy() automatically injects the correct Authorization header using the stored and refreshed token for that connection. The endpoint is relative to the base URL configured for the integration in Nango. This approach keeps token handling entirely in Nango — your application code never needs to handle token refresh logic."
+    }
+  ],
+  "gotchas": [
+    "Nango does NOT provide pre-configured OAuth credentials. You must register your own OAuth app with each third-party provider (GitHub, Salesforce, HubSpot, etc.) and supply the client ID and client secret to Nango. Integrating 10 providers means registering 10 separate OAuth apps across 10 developer portals — budget time for this setup work.",
+    "The open-source self-hosted version of Nango has fewer features than the cloud offering. Scheduled sync orchestration, the pre-built integration templates marketplace, and some advanced proxy features are cloud-only. Review the feature comparison at docs.nango.dev before committing to self-hosting.",
+    "Nango stores OAuth access tokens and refresh tokens on their servers (or your self-hosted instance). You are trusting Nango with credentials that grant access to your users' third-party accounts. Review Nango's security documentation, encryption at rest policies, and ensure this arrangement complies with your security requirements and terms of service with end users."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% SLA (Scale tier and above)",
+    "statusPageUrl": "https://www.nangostatus.dev",
+    "notes": "Open-source self-hosted option available for full control. Cloud version uses isolated credential storage per customer environment. Token refresh happens automatically in Nango's infrastructure, decoupled from your application availability."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Solves the hardest part of third-party integrations — OAuth token lifecycle management and refresh — elegantly. 200+ pre-built integration configurations save significant OAuth boilerplate. The proxy API and connection model are well-designed. For teams building product integrations, Nango is substantially faster than implementing OAuth yourself for each provider.",
+  "alternatives": [],
+  "complementary": ["supabase", "neon", "clerk", "auth0"],
+  "bestFor": "Building product integrations that let users connect their third-party accounts (GitHub, Salesforce, HubSpot) via OAuth, without managing token storage and refresh yourself",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

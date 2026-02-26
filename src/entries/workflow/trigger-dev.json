@@ -1,0 +1,89 @@
+{
+  "name": "Trigger.dev",
+  "slug": "trigger-dev",
+  "category": "workflow",
+  "subcategory": "background-jobs",
+  "website": "https://trigger.dev",
+  "description": "Open-source background job and workflow platform with a developer-first SDK. Write jobs as plain TypeScript functions with built-in retries, delays, concurrency controls, and real-time monitoring dashboard. No separate queue infrastructure needed.",
+  "useCases": [
+    {
+      "task": "Send emails after user signup",
+      "fit": "perfect"
+    },
+    {
+      "task": "Process uploaded files in the background",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run scheduled cron jobs",
+      "fit": "perfect"
+    },
+    {
+      "task": "Fan-out tasks with parallelism",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create an account at trigger.dev",
+      "Create a new project in the dashboard",
+      "Copy the secret key from the project settings page",
+      "Set the TRIGGER_SECRET_KEY environment variable in your app",
+      "Install the SDK and optionally set TRIGGER_API_URL if self-hosting"
+    ],
+    "envVarName": "TRIGGER_SECRET_KEY",
+    "codeSnippet": "import { TriggerClient } from '@trigger.dev/sdk';\n\nexport const client = new TriggerClient({\n  id: 'my-app',\n  apiKey: process.env.TRIGGER_SECRET_KEY,\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Hobby: 50,000 runs/month, 60-day log retention",
+    "startingPrice": "$10/month (Pro) for 100K runs/month with team access",
+    "costPer": "$0.001/run after included monthly quota",
+    "pricingUrl": "https://trigger.dev/pricing"
+  },
+  "rateLimits": {
+    "tier": "cloud hobby",
+    "limit": "50K runs/month included, up to 15-minute execution duration per run",
+    "notes": "Runs can be paused and resumed using waitFor and waitForEvent. Concurrency can be configured per task. The free tier resets monthly.",
+    "retryStrategy": "Built-in retry with configurable maxAttempts (default: 3) and exponential backoff. Set retry.maxAttempts: 0 to disable."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @trigger.dev/sdk",
+    "importStatement": "import { task, logger } from '@trigger.dev/sdk/v3';",
+    "otherLanguages": []
+  },
+  "codeExamples": [
+    {
+      "title": "Define and trigger a background task",
+      "language": "typescript",
+      "code": "// src/trigger/send-welcome-email.ts\nimport { task, logger } from '@trigger.dev/sdk/v3';\nimport { sendEmail } from '../lib/email';\n\nexport const sendWelcomeEmail = task({\n  id: 'send-welcome-email',\n  run: async (payload: { userId: string; email: string }) => {\n    logger.log('Sending welcome email', { userId: payload.userId });\n\n    await sendEmail({\n      to: payload.email,\n      subject: 'Welcome!',\n      html: '<h1>Welcome aboard</h1>',\n    });\n\n    return { success: true };\n  },\n});\n\n// In your API route:\nimport { sendWelcomeEmail } from '../trigger/send-welcome-email';\n\n// Fire-and-forget: returns a handle immediately\nconst handle = await sendWelcomeEmail.trigger({\n  userId: 'user_123',\n  email: 'jane@example.com',\n});\n\nconsole.log('Triggered run:', handle.id);",
+      "notes": "Tasks must be exported from files inside the trigger/ directory (or wherever TRIGGER_DIRS points). The task id must be unique across your project."
+    },
+    {
+      "title": "Task with retry configuration and delay",
+      "language": "typescript",
+      "code": "import { task, logger, wait } from '@trigger.dev/sdk/v3';\nimport { fetchExternalData, processData } from '../lib/data';\n\nexport const processUserData = task({\n  id: 'process-user-data',\n  retry: {\n    maxAttempts: 5,\n    factor: 2,\n    minTimeoutInMs: 1_000,\n    maxTimeoutInMs: 30_000,\n  },\n  run: async (payload: { userId: string }) => {\n    logger.log('Processing user data', { userId: payload.userId });\n\n    const raw = await fetchExternalData(payload.userId);\n\n    // Pause the run for 30 seconds (does not block a worker thread)\n    await wait.for({ seconds: 30 });\n\n    const result = await processData(raw);\n\n    logger.log('Processing complete', { result });\n    return result;\n  },\n});",
+      "notes": "wait.for() suspends the run without consuming worker capacity. The run resumes automatically after the delay. Retries use exponential backoff with jitter between minTimeoutInMs and maxTimeoutInMs."
+    }
+  ],
+  "gotchas": [
+    "Trigger.dev v3 (current) is a major rewrite from v2. The defineJob API from v2 is replaced by task. Any documentation or examples using defineJob are outdated and will not work with the v3 SDK.",
+    "Tasks must be registered with Trigger.dev at build time via the trigger deploy command (or trigger dev for local development). You cannot dynamically define or register tasks at runtime — the task id must be statically known.",
+    "Long-running tasks must be split into sub-tasks or use checkpoints. The Hobby tier has a 60-second max execution duration per run; Pro allows up to 15 minutes. For tasks that need to run longer, use triggerAndWait() to chain tasks sequentially or use wait.for() to pause mid-run."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% for cloud (Pro tier)",
+    "statusPageUrl": "https://status.trigger.dev",
+    "notes": "Self-hosted deployment is supported on any Node.js-compatible host. Cloud uses isolated workers per customer. The open-source codebase can be self-hosted with Docker."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "The best open-source background job platform for TypeScript developers. Writing jobs as plain TypeScript functions with live log streaming and local dev mode is an outstanding DX. The v3 rewrite addressed major limitations of v2. Main drawback is a smaller ecosystem compared to Inngest and a steeper initial setup with the deploy step.",
+  "alternatives": ["inngest"],
+  "complementary": ["resend", "supabase", "neon", "stripe", "uploadthing"],
+  "bestFor": "TypeScript-first background jobs and workflows with long-running task support and a great local development experience",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

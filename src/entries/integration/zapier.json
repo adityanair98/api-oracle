@@ -1,0 +1,92 @@
+{
+  "name": "Zapier",
+  "slug": "zapier",
+  "category": "integration",
+  "subcategory": "no-code-automation",
+  "website": "https://zapier.com",
+  "description": "Zapier is the dominant no-code automation platform connecting 6,000+ apps with trigger-action workflows (\"Zaps\"). For developers, Zapier offers Webhooks for triggering Zaps programmatically or sending data from custom apps into any of 6,000+ connected services.",
+  "useCases": [
+    {
+      "task": "Trigger actions in 6,000+ apps from a webhook or API call",
+      "fit": "perfect"
+    },
+    {
+      "task": "Connect two SaaS tools without writing any code",
+      "fit": "perfect"
+    },
+    {
+      "task": "Forward form submissions or payments to CRM and email",
+      "fit": "good"
+    },
+    {
+      "task": "Build a custom Zapier integration for your own product",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create an account at zapier.com",
+      "Create a new Zap and search for 'Webhooks by Zapier' as the trigger",
+      "Select 'Catch Hook' as the trigger event to get an instant webhook URL",
+      "Copy the webhook URL shown — this is your ZAPIER_WEBHOOK_URL endpoint",
+      "Send a test POST request to the webhook URL to confirm the trigger fires",
+      "Add action steps in the Zap editor (e.g., add row to Google Sheets, post to Slack)",
+      "Publish the Zap to activate it"
+    ],
+    "envVarName": "ZAPIER_WEBHOOK_URL",
+    "codeSnippet": "const response = await fetch(process.env.ZAPIER_WEBHOOK_URL, {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({ event: 'user.signed_up', email: 'user@example.com' }),\n});\nif (!response.ok) {\n  throw new Error(`Zapier webhook failed: ${response.status}`);\n}\n// Zapier returns 200 with 'Accepted' on success"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: 100 tasks/month, 5 Zaps, 15-minute polling interval",
+    "startingPrice": "$19.99/month (Starter) for 750 tasks/month, 20 Zaps, 15-minute polling",
+    "costPer": null,
+    "pricingUrl": "https://zapier.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "100 tasks/month on free plan; tasks are counted per action step (a 3-step Zap consumes 3 tasks per run)",
+    "notes": "Webhook triggers (Catch Hook) are real-time and instant on all plans. Polling triggers on the free plan check every 15 minutes; paid plans support 1-minute polling. Task count resets monthly.",
+    "retryStrategy": "Zapier automatically retries failed tasks up to 3 times before marking them errored. Failed tasks appear in Task History and can be manually replayed from the Zapier dashboard. Implement idempotency in your receiving endpoint to handle replays safely."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact node-fetch",
+    "importStatement": "import fetch from 'node-fetch';",
+    "otherLanguages": ["javascript", "python", "ruby"]
+  },
+  "codeExamples": [
+    {
+      "title": "Send data to a Zapier webhook",
+      "language": "typescript",
+      "code": "interface ZapierWebhookPayload {\n  [key: string]: string | number | boolean | null;\n}\n\nasync function triggerZap(payload: ZapierWebhookPayload): Promise<void> {\n  const webhookUrl = process.env.ZAPIER_WEBHOOK_URL;\n  if (!webhookUrl) {\n    throw new Error('ZAPIER_WEBHOOK_URL environment variable is not set');\n  }\n\n  const response = await fetch(webhookUrl, {\n    method: 'POST',\n    headers: {\n      'Content-Type': 'application/json',\n    },\n    body: JSON.stringify(payload),\n  });\n\n  if (!response.ok) {\n    throw new Error(`Zapier webhook request failed: ${response.status} ${response.statusText}`);\n  }\n\n  // Zapier responds with plain text 'Accepted' on success\n  const body = await response.text();\n  console.log('Zap triggered:', body);\n}\n\n// Example: trigger a Zap when a user signs up\nawait triggerZap({\n  event: 'user.signed_up',\n  email: 'jane@example.com',\n  name: 'Jane Smith',\n  plan: 'free',\n  signedUpAt: new Date().toISOString(),\n});\n// Zapier will now execute all action steps in the Zap:\n// e.g., add row to Google Sheets, send Slack notification, create HubSpot contact",
+      "notes": "The webhook URL is specific to each Zap — copy it from the 'Catch Hook' trigger step in the Zap editor. Any JSON-serializable fields you send become available as variables in Zap action steps. Field names become the variable names visible in the Zapier editor."
+    },
+    {
+      "title": "Receive a webhook FROM Zapier in your app",
+      "language": "typescript",
+      "code": "import express, { Request, Response } from 'express';\n\ninterface ZapierWebhookBody {\n  event?: string;\n  [key: string]: unknown;\n}\n\nconst app = express();\napp.use(express.json());\n\n// Zapier sends data to your app using the 'Webhooks by Zapier' action\n// Configure the Zap to POST to your endpoint URL\napp.post('/webhooks/zapier', (req: Request, res: Response): void => {\n  const body = req.body as ZapierWebhookBody;\n\n  console.log('Received Zapier webhook:', body);\n\n  // Zapier checks for a 2xx status to consider the action successful\n  // If you return 4xx/5xx, Zapier will retry and eventually mark the task errored\n  const event = body.event ?? 'unknown';\n\n  switch (event) {\n    case 'new_lead':\n      // Handle new CRM lead forwarded from HubSpot via Zapier\n      console.log('New lead received from Zapier:', body);\n      break;\n    case 'payment_received':\n      // Handle payment notification forwarded from Stripe via Zapier\n      console.log('Payment notification from Zapier:', body);\n      break;\n    default:\n      console.log('Unhandled Zapier event:', event);\n  }\n\n  // Always return 200 quickly — Zapier has a short timeout (~10s)\n  res.status(200).json({ received: true });\n});\n\napp.listen(3000, () => console.log('Listening for Zapier webhooks on port 3000'));",
+      "notes": "Zapier expects a 2xx response within roughly 10 seconds. If your processing takes longer, immediately return 200 and process asynchronously (queue the job). Zapier does not sign its webhook requests by default — if you need to verify the source, use a secret in the URL path or a shared header value configured in the Zap's webhook action settings."
+    }
+  ],
+  "gotchas": [
+    "Zapier's free plan uses 15-minute polling for most app triggers — this is NOT real-time automation. For instant reactions (e.g., new Stripe payment triggers an email), you need a paid plan or must use 'Webhooks by Zapier' as the trigger, which IS instant on all plans.",
+    "Tasks are counted per action step, not per Zap run. A Zap with 4 action steps consumes 4 tasks every time it runs. An apparently simple automation can drain your monthly quota surprisingly fast — audit your multi-step Zaps before hitting task limits.",
+    "Zapier is optimized for non-developers. When you need complex logic (loops, conditional branches, data transformation beyond basic formatting), the built-in tools (Formatter, Filter, Paths) become limiting quickly. For code-heavy workflows with branching logic, dedicated workflow engines are more appropriate.",
+    "Data sent through Zapier passes through Zapier's servers. Do NOT send sensitive PII, credentials, or HIPAA-covered data through Zapier unless your plan includes a Business Associate Agreement (BAA) and you have reviewed their data handling and retention policies."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% SLA (Business and Company plans)",
+    "statusPageUrl": "https://status.zapier.com",
+    "notes": "Zapier's core infrastructure is mature and reliable. The primary failure mode is third-party API changes breaking individual Zaps — Zapier cannot control external API stability. Monitor Task History for errored tasks and set up Zapier error notifications."
+  },
+  "qualityScore": 7,
+  "qualityJustification": "Unmatched breadth with 6,000+ integrations — if you need to connect two SaaS tools with no code, nothing beats it. For developers, the webhook trigger is simple and genuinely useful. Main drawbacks: task-based pricing gets expensive at scale, 15-minute polling on the free tier is frustrating, and it is not designed for complex programmatic workflows with conditional logic.",
+  "alternatives": [],
+  "complementary": ["stripe", "resend", "typeform", "cal-com", "shopify-api"],
+  "bestFor": "No-code automation between SaaS tools, or programmatically triggering actions across 6,000+ apps via webhooks without building direct API integrations",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

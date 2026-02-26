@@ -1,0 +1,90 @@
+{
+  "name": "Temporal",
+  "slug": "temporal",
+  "category": "workflow",
+  "subcategory": "workflow-engine",
+  "website": "https://temporal.io",
+  "description": "Open-source, battle-tested distributed workflow engine for running durable, fault-tolerant long-running processes. Write complex business logic as ordinary code; Temporal handles persistence, retries, timeouts, and recovery from infrastructure failures automatically.",
+  "useCases": [
+    {
+      "task": "Orchestrate multi-service business processes",
+      "fit": "perfect"
+    },
+    {
+      "task": "Long-running workflows spanning days or weeks with human approval steps",
+      "fit": "perfect"
+    },
+    {
+      "task": "Saga patterns for distributed transactions with compensating actions",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run reliable scheduled tasks and cron jobs",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "For self-hosted: install Temporal server via Docker using 'docker compose up temporal' from the temporalio/docker-compose repository",
+      "Install the TypeScript SDK packages: @temporalio/client, @temporalio/worker, @temporalio/workflow, @temporalio/activity",
+      "Connect workers to localhost:7233 for local development",
+      "For Temporal Cloud: create a namespace at cloud.temporal.io and generate an API key from account settings",
+      "Set the TEMPORAL_API_KEY and TEMPORAL_NAMESPACE environment variables for Temporal Cloud connections"
+    ],
+    "envVarName": "TEMPORAL_API_KEY",
+    "codeSnippet": "import { Client, Connection } from '@temporalio/client';\n\nconst connection = await Connection.connect({\n  address: process.env.TEMPORAL_ADDRESS ?? 'localhost:7233',\n  // For Temporal Cloud, add TLS and API key options here\n});\n\nexport const client = new Client({ connection,\n  namespace: process.env.TEMPORAL_NAMESPACE ?? 'default',\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Self-host: completely free and unlimited. Temporal Cloud: free trial with $1,000 in credits",
+    "startingPrice": "Temporal Cloud: usage-based, approximately $0.42 per 1M workflow actions",
+    "costPer": "$0.42/1M workflow actions (executions, signals, queries, timers each count as one action)",
+    "pricingUrl": "https://temporal.io/pricing"
+  },
+  "rateLimits": {
+    "tier": "self-hosted",
+    "limit": "No limits when self-hosted. Temporal Cloud: configurable rate limits per namespace.",
+    "notes": "Self-hosted Temporal can handle millions of concurrent workflows depending on your database and server resources. Temporal Cloud scales automatically but has namespace-level rate limits that can be raised by contacting support.",
+    "retryStrategy": "Built-in. RetryPolicy in ActivityOptions controls maxAttempts and backoff coefficients. Workflows are automatically replayed from their event history on worker restart — no in-flight data is lost across restarts or failures."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @temporalio/client @temporalio/worker @temporalio/workflow @temporalio/activity",
+    "importStatement": "import { Client } from \"@temporalio/client\";",
+    "otherLanguages": ["go", "java", "python", "php", "dotnet"]
+  },
+  "codeExamples": [
+    {
+      "title": "Define a Workflow with Activities and start it from a Client",
+      "language": "typescript",
+      "code": "// activities.ts — I/O and side effects go here\nimport type { ActivityOptions } from '@temporalio/activity';\n\nexport async function processPayment(orderId: string, amount: number): Promise<string> {\n  // Call your payment provider SDK here\n  const result = await stripe.charges.create({ amount, currency: 'usd' });\n  return result.id;\n}\n\nexport async function sendConfirmationEmail(orderId: string, chargeId: string): Promise<void> {\n  await resend.emails.send({\n    from: 'orders@acme.com',\n    to: 'customer@example.com',\n    subject: `Order ${orderId} confirmed`,\n    html: `<p>Charge ID: ${chargeId}</p>`,\n  });\n}\n\n// workflow.ts — must be fully deterministic; no I/O, no Date.now(), no Math.random()\nimport { proxyActivities, log } from '@temporalio/workflow';\nimport type * as activities from './activities';\n\nconst { processPayment, sendConfirmationEmail } = proxyActivities<typeof activities>({\n  startToCloseTimeout: '30 seconds',\n  retry: { maximumAttempts: 3 },\n});\n\nexport async function orderWorkflow(orderId: string, amount: number): Promise<void> {\n  log.info('Starting order workflow', { orderId });\n  const chargeId = await processPayment(orderId, amount);\n  await sendConfirmationEmail(orderId, chargeId);\n  log.info('Order workflow complete', { orderId, chargeId });\n}\n\n// worker.ts — runs as a long-lived process alongside your app server\nimport { Worker } from '@temporalio/worker';\nimport * as activities from './activities';\n\nconst worker = await Worker.create({\n  workflowsPath: require.resolve('./workflow'),\n  activities,\n  taskQueue: 'orders',\n});\nawait worker.run();\n\n// client-usage.ts — start the workflow from an API route\nimport { client } from './temporal-client';\n\nconst handle = await client.workflow.start(orderWorkflow, {\n  taskQueue: 'orders',\n  workflowId: `order-${orderId}`,\n  args: [orderId, amount],\n});\nconsole.log('Workflow started:', handle.workflowId);",
+      "notes": "Activity functions contain all I/O and side effects. Workflow functions must be deterministic — all non-deterministic operations (network calls, timestamps, randomness) must be wrapped inside activities."
+    },
+    {
+      "title": "Long-running workflow with human approval signal",
+      "language": "typescript",
+      "code": "import {\n  defineSignal,\n  setHandler,\n  condition,\n  proxyActivities,\n  sleep,\n} from '@temporalio/workflow';\nimport type * as activities from './activities';\n\nexport const approveSignal = defineSignal<[{ approved: boolean; reviewerId: string }]>('approve');\n\nconst { requestHumanReview, processApprovedWithdrawal, notifyRejected } =\n  proxyActivities<typeof activities>({ startToCloseTimeout: '10 seconds' });\n\nexport async function withdrawalApprovalWorkflow(\n  withdrawalId: string,\n  amount: number\n): Promise<string> {\n  let approvalResult: { approved: boolean; reviewerId: string } | null = null;\n\n  // Register a signal handler — external callers can send this signal to the workflow\n  setHandler(approveSignal, (result) => {\n    approvalResult = result;\n  });\n\n  // Notify the review team that action is needed\n  await requestHumanReview(withdrawalId, amount);\n\n  // Wait up to 48 hours for a human to send the approval signal\n  const approved = await condition(() => approvalResult !== null, '48 hours');\n\n  if (!approved || !approvalResult?.approved) {\n    await notifyRejected(withdrawalId);\n    return 'rejected';\n  }\n\n  await processApprovedWithdrawal(withdrawalId, amount);\n  return `approved-by-${approvalResult.reviewerId}`;\n}",
+      "notes": "The workflow sleeps durably — the worker process can restart, crash, or be redeployed during the 48-hour wait and the workflow will resume correctly. Send the signal via: client.workflow.getHandle(workflowId).signal(approveSignal, { approved: true, reviewerId: 'alice' })"
+    }
+  ],
+  "gotchas": [
+    "Temporal Workflows must be strictly deterministic. You cannot use Date.now(), Math.random(), or make direct network/database calls inside a workflow function. All I/O must live in Activities. The TypeScript sandbox enforces this at runtime, but non-deterministic code that slips through causes workflow history replay failures — these are extremely difficult to diagnose in production.",
+    "Temporal requires a continuously running worker process alongside your application server. Unlike Inngest or Trigger.dev, Temporal is NOT serverless — you must keep workers deployed and running. This adds meaningful infrastructure overhead: you need to manage worker scaling, health checks, and restarts separately from your app.",
+    "Temporal Cloud pricing is per workflow action, where a single workflow execution can generate dozens of actions (one per activity, signal, timer, query, etc.). This makes costs nearly impossible to estimate without load testing. Always profile workflow action counts under realistic load before committing to Temporal Cloud for cost-sensitive use cases.",
+    "The event history for a single workflow execution is limited to 51,200 events by default on Temporal Cloud. Workflows with large loops, many activities, or indefinite runtimes will hit this limit and fail with a hard error. Use the Continue-as-New pattern (continueAsNew()) to reset history for workflows that must run indefinitely."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% SLA (Temporal Cloud)",
+    "statusPageUrl": "https://status.temporal.io",
+    "notes": "Temporal Cloud is fully managed with global multi-region replication and automatic failover. Self-hosted deployments require operating a highly available Temporal server cluster with a supported database (PostgreSQL, MySQL, or Cassandra)."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "The most powerful open-source workflow engine available — handles failures, retries, and persistent state automatically in a way that no other tool matches. Genuinely solves hard distributed systems problems that would otherwise require complex custom infrastructure. High learning curve (determinism constraint, worker management, new mental model) and infrastructure overhead make it best suited for teams with complex, mission-critical workflow needs rather than simple background jobs.",
+  "alternatives": ["trigger-dev", "inngest"],
+  "complementary": ["neon", "stripe", "resend"],
+  "bestFor": "Complex, long-running distributed workflows requiring bulletproof fault tolerance — order processing, financial transactions, and multi-step human-in-the-loop processes",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

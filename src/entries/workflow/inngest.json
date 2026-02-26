@@ -1,0 +1,88 @@
+{
+  "name": "Inngest",
+  "slug": "inngest",
+  "category": "workflow",
+  "subcategory": "background-jobs",
+  "website": "https://www.inngest.com",
+  "description": "Event-driven background job platform for TypeScript and JavaScript. Write durable functions as plain code that respond to events, with built-in retries, step functions, scheduling, and fan-out. No separate queue infrastructure needed — integrates via HTTP with any serverless platform.",
+  "useCases": [
+    {
+      "task": "Run background tasks after user actions",
+      "fit": "perfect"
+    },
+    {
+      "task": "Orchestrate multi-step workflows with error recovery",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run scheduled and cron jobs",
+      "fit": "perfect"
+    },
+    {
+      "task": "Process incoming webhook events",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Create an account at inngest.com",
+      "Create a new app in the Inngest dashboard to get an event key and signing key",
+      "Set the INNGEST_EVENT_KEY and INNGEST_SIGNING_KEY environment variables in your app",
+      "Install the SDK and serve the Inngest handler at the /api/inngest route in your framework (Next.js, Express, Fastify, etc.)"
+    ],
+    "envVarName": "INNGEST_EVENT_KEY",
+    "codeSnippet": "import { Inngest } from 'inngest';\n\nexport const inngest = new Inngest({\n  id: 'my-app',\n  eventKey: process.env.INNGEST_EVENT_KEY,\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "Free: 50,000 function runs/month, 3-day log retention",
+    "startingPrice": "$25/month (Basic) for 150,000 runs/month",
+    "costPer": null,
+    "pricingUrl": "https://www.inngest.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "50,000 function runs/month, 3-day log history, community support",
+    "notes": "Inngest functions run wherever your app runs (Vercel, Railway, Fly.io). The local dev server (npx inngest-cli@latest dev) runs entirely offline without an account.",
+    "retryStrategy": "Built-in automatic retry on thrown errors with exponential backoff. Configure via the retries option in createFunction or the function definition object. Step functions (step.run()) only retry the failed step, not the entire function."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact inngest",
+    "importStatement": "import { Inngest } from \"inngest\";",
+    "otherLanguages": ["python", "go"]
+  },
+  "codeExamples": [
+    {
+      "title": "Define and trigger an Inngest function",
+      "language": "typescript",
+      "code": "// lib/inngest.ts — shared client\nimport { Inngest } from 'inngest';\n\nexport const inngest = new Inngest({\n  id: 'my-app',\n  eventKey: process.env.INNGEST_EVENT_KEY,\n});\n\n// inngest/send-welcome-email.ts — function definition\nimport { inngest } from '../lib/inngest';\n\nexport const sendWelcomeEmail = inngest.createFunction(\n  { id: 'send-welcome-email', retries: 3 },\n  { event: 'user/signup.created' },\n  async ({ event, step }) => {\n    const { userId, email } = event.data;\n\n    await step.run('send-email', async () => {\n      // Any thrown error here triggers a retry of this step only\n      await fetch('https://api.email.com/send', {\n        method: 'POST',\n        body: JSON.stringify({ to: email, subject: 'Welcome!' }),\n      });\n    });\n\n    return { sent: true, userId };\n  }\n);\n\n// app/api/route.ts — trigger an event from your API\nimport { inngest } from '../../lib/inngest';\n\nexport async function POST(req: Request) {\n  const body = await req.json();\n\n  await inngest.send({\n    name: 'user/signup.created',\n    data: { userId: body.userId, email: body.email },\n  });\n\n  return Response.json({ ok: true });\n}",
+      "notes": "The Inngest handler must also be served at /api/inngest. In Next.js App Router: export the handler from app/api/inngest/route.ts using the serve() helper from 'inngest/next'."
+    },
+    {
+      "title": "Multi-step workflow with step.run()",
+      "language": "typescript",
+      "code": "import { inngest } from '../lib/inngest';\nimport { db } from '../lib/db';\nimport { resend } from '../lib/resend';\n\nexport const onboardUser = inngest.createFunction(\n  { id: 'onboard-user', retries: 5 },\n  { event: 'user/signup.created' },\n  async ({ event, step }) => {\n    const { userId } = event.data;\n\n    // Step 1: Fetch user data — retried independently if it fails\n    const user = await step.run('fetch-user', async () => {\n      return db.users.findUnique({ where: { id: userId } });\n    });\n\n    // Step 2: Send welcome email — only runs after step 1 succeeds\n    await step.run('send-welcome-email', async () => {\n      await resend.emails.send({\n        from: 'hello@acme.com',\n        to: user.email,\n        subject: 'Welcome to Acme!',\n        html: `<h1>Hi ${user.name}!</h1>`,\n      });\n    });\n\n    // Step 3: Update onboarding status in DB\n    await step.run('mark-onboarded', async () => {\n      await db.users.update({\n        where: { id: userId },\n        data: { onboardedAt: new Date() },\n      });\n    });\n\n    return { userId, onboarded: true };\n  }\n);",
+      "notes": "Each step.run() call is individually memoized. If step 3 fails and retries, Inngest replays the function but skips steps 1 and 2 using stored results — they do not re-execute."
+    }
+  ],
+  "gotchas": [
+    "Inngest functions are deployed as part of your existing app, not as standalone workers. Your app must expose an /api/inngest HTTP endpoint that Inngest calls via webhook. If your server is down or cold-starts too slowly, function invocations can be delayed or missed.",
+    "The free tier's 3-day log retention makes debugging intermittent production issues difficult. Any log or run older than 3 days cannot be retrieved from the dashboard. For any production app, the paid tier with 30-day retention is practically required.",
+    "Code outside of step.run() blocks runs on every replay. When Inngest retries a function, it replays the entire function from the top but skips completed steps using memoized results. Any side effects (API calls, database writes) placed outside step.run() will execute multiple times. Always wrap effectful code in step.run()."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA (Pro tier)",
+    "statusPageUrl": "https://www.inngeststatus.com",
+    "notes": "Functions execute within your own infrastructure. Inngest acts as an event relay and orchestration layer. Your app's reliability directly affects function execution reliability."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Excellent developer experience — works within your existing framework (Next.js, Express, Fastify) without a separate worker process. Step functions with automatic memoization and per-step retries are genuinely powerful for complex workflows. The local dev server with no account required is a standout feature. Slight drawback: free tier log retention is too short for production debugging.",
+  "alternatives": ["trigger-dev"],
+  "complementary": ["vercel", "resend", "stripe", "supabase", "neon"],
+  "bestFor": "Event-driven background jobs and multi-step workflows that run within your existing serverless or server infrastructure",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-4"
+}

@@ -17,8 +17,9 @@ Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSO
 | `npm run dev` | Run server directly with tsx (no compile needed) |
 | `npm test` | Run all tests with Vitest |
 | `npm run test:watch` | Watch mode for tests |
-| `npm run validate` | Validate all JSON entries against schema (CI-safe) |
+| `npm run validate` | Validate all JSON entries against schema + cross-references (CI-safe) |
 | `npm run seed` | Load all JSON entries into SQLite database |
+| `npm run e2e` | Run end-to-end query scenarios against the live database |
 
 ## Code Conventions
 
@@ -41,7 +42,7 @@ Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSO
 | **Server** | `src/server.ts` | McpServer setup, tool registration |
 | **Entry** | `src/index.ts` | Startup: init DB, start server |
 | **Entries** | `src/entries/**/*.json` | API knowledge base (one JSON per API) |
-| **Scripts** | `scripts/*.ts` | seed-db.ts and validate-entries.ts |
+| **Scripts** | `scripts/*.ts` | seed-db.ts, validate-entries.ts, e2e-test.ts |
 
 ## How to Add a New API Entry
 

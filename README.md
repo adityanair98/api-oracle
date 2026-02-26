@@ -16,16 +16,23 @@ Exposes 3 MCP tools to Claude Code:
 
 ## Knowledge Base
 
-12 curated API entries across 6 categories:
+35 curated API entries across 13 categories:
 
 | Category | APIs |
 |----------|------|
 | Email | Resend, SendGrid, Postmark |
 | Payments | Stripe, Razorpay |
-| AI | OpenAI, Anthropic |
+| AI | OpenAI, Anthropic, Replicate, Resemble AI |
 | Storage | Cloudinary, UploadThing |
 | Auth | Clerk, Auth0 |
 | Search | Algolia |
+| Messaging | Twilio, Vonage, Pusher, Ably |
+| Communication | Stream Chat, Sendbird |
+| Database | Supabase, Firebase, PlanetScale, Upstash, Neon |
+| Media | Mux, Deepgram, imgix |
+| Maps | Mapbox, Google Maps Platform |
+| Notifications | OneSignal, Knock, Novu |
+| Analytics | Sentry, PostHog |
 
 ## Quick Start
 
@@ -50,27 +57,15 @@ npm run seed
 
 ### 4. Connect to Claude Code
 
-Add to `~/.claude/mcp_servers.json`:
+Add to `~/.claude/claude.json` under `mcpServers`:
 
 ```json
 {
-  "api-oracle": {
-    "command": "node",
-    "args": ["dist/index.js"],
-    "cwd": "/absolute/path/to/api-oracle"
-  }
-}
-```
-
-Or with environment variables:
-```json
-{
-  "api-oracle": {
-    "command": "node",
-    "args": ["dist/index.js"],
-    "cwd": "/absolute/path/to/api-oracle",
-    "env": {
-      "DB_PATH": "/absolute/path/to/api-oracle/data/api-oracle.db"
+  "mcpServers": {
+    "api-oracle": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "cwd": "/absolute/path/to/api-oracle"
     }
   }
 }
@@ -84,9 +79,10 @@ The `api-oracle` server will now appear in your MCP servers list.
 
 ```bash
 npm run dev        # Run with tsx (no build needed)
-npm test           # Run tests
-npm run validate   # Validate all JSON entries
+npm test           # Run unit tests (56 tests)
+npm run validate   # Validate all JSON entries + cross-references
 npm run seed       # Seed database
+npm run e2e        # Run 8 end-to-end query scenarios
 ```
 
 ## Environment Variables
@@ -101,7 +97,7 @@ npm run seed       # Seed database
 
 1. Create `src/entries/<category>/<slug>.json`
 2. Fill in all schema fields (see `docs/adding-apis.md`)
-3. `npm run validate` — verify schema
+3. `npm run validate` — verify schema and cross-references
 4. `npm run seed` — load into database
 5. `npm test` — run tests
 
@@ -122,13 +118,20 @@ src/
 │   ├── db.ts             # SQLite CRUD (better-sqlite3)
 │   ├── search.ts         # Search entry point
 │   └── scorer.ts         # Weighted ranking engine
-├── entries/              # API knowledge base (JSON files)
-│   ├── email/
-│   ├── payments/
-│   ├── ai/
-│   ├── storage/
-│   ├── auth/
-│   └── search/
+├── entries/              # API knowledge base (35 JSON files)
+│   ├── ai/               # openai, anthropic, replicate, resemble-ai
+│   ├── analytics/        # sentry, posthog
+│   ├── auth/             # clerk, auth0
+│   ├── communication/    # stream-chat, sendbird
+│   ├── database/         # supabase, firebase, planetscale, upstash, neon
+│   ├── email/            # resend, sendgrid, postmark
+│   ├── maps/             # mapbox, google-maps
+│   ├── media/            # mux, deepgram, imgix
+│   ├── messaging/        # twilio, vonage, pusher, ably
+│   ├── notifications/    # onesignal, knock, novu
+│   ├── payments/         # stripe, razorpay
+│   ├── search/           # algolia
+│   └── storage/          # cloudinary, uploadthing
 └── utils/
     ├── logger.ts         # Structured stderr logger
     └── config.ts         # Environment config
@@ -136,11 +139,10 @@ src/
 
 See [docs/scoring-logic.md](docs/scoring-logic.md) for how the ranking algorithm works.
 
-## Roadmap (V1.1+)
+## Roadmap (V0.3+)
 
 - **Semantic search** — vector embeddings for better query understanding (replace LIKE)
-- **More APIs** — Twilio, Pusher, Supabase, PlanetScale, Neon, Sentry, Datadog, etc.
-- **More categories** — messaging, analytics, database, notifications, maps
+- **More APIs** — Datadog, Stripe Billing, Twilio Segment, Cloudflare Workers KV, etc.
 - **Live validation** — periodically verify pricing/rate limits are still accurate
 - **Graph relationships** — boost APIs commonly used together
 - **Category browsing** — new tool: `list_apis_by_category`

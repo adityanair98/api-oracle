@@ -10,6 +10,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { registerFindBestApi } from "./tools/find-api.js";
 import { registerCompareApis } from "./tools/compare-apis.js";
 import { registerGetSetupGuide } from "./tools/get-setup-guide.js";
+import { registerCheckApiFreshness } from "./tools/check-freshness.js";
 import { createLogger } from "./utils/logger.js";
 
 const logger = createLogger("server");
@@ -35,8 +36,9 @@ export function createServer(): McpServer {
   registerFindBestApi(server);
   registerCompareApis(server);
   registerGetSetupGuide(server);
+  registerCheckApiFreshness(server);
 
-  logger.info("Server created with 3 tools registered");
+  logger.info("Server created with 4 tools registered");
   return server;
 }
 

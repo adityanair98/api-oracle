@@ -11,7 +11,8 @@
     "validate": "tsx scripts/validate-entries.ts",
     "seed": "tsx scripts/seed-db.ts",
     "e2e": "tsx scripts/e2e-test.ts",
-    "analyze": "tsx scripts/scoring-analysis.ts"
+    "analyze": "tsx scripts/scoring-analysis.ts",
+    "refresh-report": "tsx scripts/refresh-report.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.27.1",

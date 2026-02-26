@@ -1,10 +1,31 @@
 {
   "name": "api-oracle",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "MCP server that finds, evaluates, and recommends the best API for any programming task",
   "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "api-oracle": "dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "src/entries/",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "claude",
+    "api",
+    "recommendation",
+    "developer-tools",
+    "ai-tools"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/dashboard/public dist/dashboard/public",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -13,15 +34,20 @@
     "e2e": "tsx scripts/e2e-test.ts",
     "analyze": "tsx scripts/scoring-analysis.ts",
     "refresh-report": "tsx scripts/refresh-report.ts",
-    "lint-entries": "tsx scripts/lint-entries.ts"
+    "lint-entries": "tsx scripts/lint-entries.ts",
+    "dashboard": "tsx src/dashboard/server.ts",
+    "dashboard:dev": "tsx watch src/dashboard/server.ts",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.27.1",
     "better-sqlite3": "12.6.2",
+    "express": "5.1.0",
     "zod": "4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",
+    "@types/express": "5.0.3",
     "@types/node": "25.3.0",
     "tsx": "4.21.0",
     "typescript": "5.9.3",

@@ -1,44 +1,54 @@
 /**
  * Scoring/ranking engine — ranks API entries by relevance to a task description.
- * Uses weighted multi-factor scoring across use case fit, quality, dev experience, and pricing.
+ * Uses weighted multi-factor scoring across 6 dimensions.
  *
- * Exports: ScoreWeights, DEFAULT_WEIGHTS, scoreEntry, rankEntries
+ * Exports: SCORING_WEIGHTS, DEFAULT_WEIGHTS, ScoreWeights, scoreEntry, rankEntries,
+ *          tokenize, scoreUseCaseFit, scoreDevExperience
  */
 
 import type { ApiEntry } from "./schema.js";
 import type { SearchConstraints, RankedResult } from "./search.js";
 
-// ─── Weights ──────────────────────────────────────────────────────────────────
+// ─── Configurable Weights ─────────────────────────────────────────────────────
+// Tune these to adjust ranking priorities. Must sum to 1.0.
 
 export interface ScoreWeights {
-  useCaseFit: number;      // How well the API matches the task (use cases + description + bestFor)
-  qualityScore: number;    // Curated quality score from the entry
-  devExperience: number;   // TypeScript SDK, code examples, setup clarity, language support
-  pricingFit: number;      // Free tier, pricing model alignment
+  useCaseFit: number;         // Match against use cases, bestFor, description
+  qualityScore: number;       // Curated quality score (1-10)
+  developerExperience: number;// TypeScript SDK, code examples, setup clarity
+  pricingFit: number;         // Free tier, pricing model alignment
+  keywordRelevance: number;   // Direct keyword match against name/slug/subcategory
+  recencyBonus: number;       // lastVerified freshness bonus
 }
 
-export const DEFAULT_WEIGHTS: ScoreWeights = {
-  useCaseFit: 0.40,
-  qualityScore: 0.25,
-  devExperience: 0.20,
+/** Default weights — must sum to exactly 1.0 */
+export const SCORING_WEIGHTS: ScoreWeights = {
+  useCaseFit: 0.35,
+  qualityScore: 0.20,
+  developerExperience: 0.15,
   pricingFit: 0.15,
+  keywordRelevance: 0.10,
+  recencyBonus: 0.05,
 };
+
+/** Alias for backwards compatibility */
+export const DEFAULT_WEIGHTS: ScoreWeights = SCORING_WEIGHTS;
 
 // ─── Tokenizer ────────────────────────────────────────────────────────────────
 
-// Stop words that add noise without semantic value
+// Stop words that add noise without semantic value in the scoring context
 const STOP_WORDS = new Set([
   "the", "and", "for", "are", "but", "not", "you", "all",
   "can", "her", "was", "one", "our", "out", "had", "has",
   "with", "this", "that", "from", "they", "have", "been",
   "more", "will", "when", "what", "your", "which", "how",
-  "any", "use", "get", "let", "its", "from", "also",
-  "want", "need", "build", "add", "make", "app",
+  "any", "use", "get", "let", "its", "also", "want", "need",
+  "build", "add", "make", "app", "just",
 ]);
 
 /**
- * Normalize text to a set of lowercase tokens for comparison.
- * Allows 2-char tokens (critical for "ai", "db", "ml", "go").
+ * Normalize text to a set of lowercase tokens.
+ * Allows 2-char tokens (important for "ai", "db", "ml", "go").
  */
 export function tokenize(text: string): Set<string> {
   const tokens = text
@@ -59,9 +69,8 @@ function tokenOverlap(a: Set<string>, b: Set<string>): number {
   return overlap / Math.max(a.size, b.size);
 }
 
-// ─── Category keywords ─────────────────────────────────────────────────────────
+// ─── Category Signals ─────────────────────────────────────────────────────────
 
-/** Strong category signals — these get a boost when matched */
 const CATEGORY_SIGNALS: Record<string, string[]> = {
   email: ["email", "mail", "smtp", "send", "transactional", "newsletter", "inbox", "bounce", "mailer"],
   payments: ["payment", "pay", "checkout", "charge", "billing", "invoice", "subscription", "card", "upi", "merchant", "transaction"],
@@ -78,7 +87,6 @@ const CATEGORY_SIGNALS: Record<string, string[]> = {
   communication: ["chat", "conversation", "channel", "room", "thread", "realtime", "websocket", "pusher", "ably"],
 };
 
-/** Score how well the query matches a category */
 function scoreCategoryMatch(queryTokens: Set<string>, category: string): number {
   const signals = CATEGORY_SIGNALS[category] ?? [];
   if (signals.length === 0) return 0;
@@ -87,11 +95,10 @@ function scoreCategoryMatch(queryTokens: Set<string>, category: string): number 
   for (const token of queryTokens) {
     if (signalSet.has(token)) matched++;
   }
-  // Normalize: 1 match = 0.33, 2 = 0.67, 3+ = 1.0
   return Math.min(matched / 3, 1.0);
 }
 
-// ─── Multi-Field Use Case Scoring ─────────────────────────────────────────────
+// ─── 1. Use Case Fit (multi-field) ────────────────────────────────────────────
 
 const FIT_WEIGHTS = {
   perfect: 1.0,
@@ -100,16 +107,16 @@ const FIT_WEIGHTS = {
 } as const;
 
 /**
- * Score an entry against a query using multiple fields with weighted relevance:
- * - Use case tasks (40%) — most direct signal with fit multiplier
- * - bestFor (25%) — concise statement of the API's purpose
- * - Description (20%) — rich context
- * - Category signals (15%) — broad category match
+ * Score against multiple fields with weighted relevance:
+ * - Use case tasks (40%) — with fit multiplier, best match wins
+ * - bestFor (25%) — concise purpose statement
+ * - Description (20%) — first 200 chars (signal-dense)
+ * - Category signals (15%) — broad category alignment
  */
 export function scoreUseCaseFit(entry: ApiEntry, queryTokens: Set<string>): number {
   if (queryTokens.size === 0) return 0;
 
-  // 1. Use case task matching (with fit multiplier — best match wins)
+  // Use case task matching
   let bestUseCaseScore = 0;
   for (const useCase of entry.useCases) {
     const useCaseTokens = tokenize(useCase.task);
@@ -118,130 +125,169 @@ export function scoreUseCaseFit(entry: ApiEntry, queryTokens: Set<string>): numb
     if (score > bestUseCaseScore) bestUseCaseScore = score;
   }
 
-  // 2. bestFor field scoring
-  const bestForTokens = tokenize(entry.bestFor);
-  const bestForScore = tokenOverlap(queryTokens, bestForTokens);
+  // bestFor
+  const bestForScore = tokenOverlap(queryTokens, tokenize(entry.bestFor));
 
-  // 3. Description scoring (partial — first 200 chars to keep it signal-dense)
-  const descTokens = tokenize(entry.description.slice(0, 200));
-  const descScore = tokenOverlap(queryTokens, descTokens);
+  // Description (first 200 chars)
+  const descScore = tokenOverlap(queryTokens, tokenize(entry.description.slice(0, 200)));
 
-  // 4. Category match signal
+  // Category match
   const categoryScore = scoreCategoryMatch(queryTokens, entry.category);
 
-  // Weighted combination:
-  // useCaseFit=40%, bestFor=25%, description=20%, category=15%
-  const combined =
+  return Math.min(
     bestUseCaseScore * 0.40 +
     bestForScore * 0.25 +
     descScore * 0.20 +
-    categoryScore * 0.15;
-
-  return Math.min(combined, 1.0);
+    categoryScore * 0.15,
+    1.0
+  );
 }
 
-// ─── Quality Score ─────────────────────────────────────────────────────────────
+// ─── 2. Quality Score ─────────────────────────────────────────────────────────
 
 function scoreQuality(entry: ApiEntry): number {
-  // qualityScore is 1-10, normalize to 0-1
   return (entry.qualityScore - 1) / 9;
 }
 
-// ─── Developer Experience ──────────────────────────────────────────────────────
+// ─── 3. Developer Experience (sub-scored) ─────────────────────────────────────
 
+/**
+ * DX sub-scoring with measurable, explicit factors:
+ * - TypeScript as primary SDK: 3 pts
+ * - 2+ code examples: 2 pts
+ * - envVarName defined (clear auth setup): 1 pt
+ * - Single npm install command: 1 pt
+ * - Multiple language SDKs (3+): 1 pt
+ * - Required language match: up to 2 pts (only when requiredLanguage is specified)
+ *
+ * Normalized to 0-1 range. Base max = 8 pts; with language constraint = 10 pts.
+ */
 export function scoreDevExperience(
   entry: ApiEntry,
   constraints?: SearchConstraints
 ): number {
   let score = 0;
-  let maxScore = 0;
+  let maxScore = 8;
 
-  // TypeScript as primary language (+30 points)
-  maxScore += 30;
+  // TypeScript primary SDK (+3)
   if (entry.sdk.primaryLanguage.toLowerCase() === "typescript") {
-    score += 30;
+    score += 3;
   } else if (entry.sdk.otherLanguages.some((l) => l.toLowerCase() === "typescript")) {
-    score += 15;
+    score += 1.5;
   }
 
-  // Required language match (+20 points)
-  maxScore += 20;
+  // 2+ code examples (+2)
+  if (entry.codeExamples.length >= 2) {
+    score += 2;
+  } else if (entry.codeExamples.length === 1) {
+    score += 1;
+  }
+
+  // envVarName defined — clear auth setup (+1)
+  if (entry.auth.envVarName && entry.auth.envVarName.length > 0) {
+    score += 1;
+  }
+
+  // Single npm install command (+1)
+  if (entry.sdk.installCommand.includes("npm install")) {
+    score += 1;
+  }
+
+  // Multiple language SDKs (3+) (+1)
+  if (entry.sdk.otherLanguages.length >= 3) {
+    score += 1;
+  }
+
+  // Required language match (only when constraint specified; +2)
   if (constraints?.requiredLanguage) {
+    maxScore += 2;
     const required = constraints.requiredLanguage.toLowerCase();
     if (entry.sdk.primaryLanguage.toLowerCase() === required) {
-      score += 20;
+      score += 2;
     } else if (entry.sdk.otherLanguages.some((l) => l.toLowerCase() === required)) {
-      score += 10;
+      score += 1;
     }
-  } else {
-    score += 20; // No constraint — full points
   }
-
-  // Number of code examples (+20 points)
-  maxScore += 20;
-  const exampleScore = Math.min(entry.codeExamples.length / 3, 1) * 20;
-  score += exampleScore;
-
-  // Auth setup clarity — few steps is better (+15 points)
-  maxScore += 15;
-  const setupSteps = entry.auth.setupSteps.length;
-  if (setupSteps <= 3) score += 15;
-  else if (setupSteps <= 5) score += 10;
-  else score += 5;
-
-  // Gotcha-to-example ratio — too many gotchas signal rough DX (+15 points)
-  maxScore += 15;
-  const gotchaRatio = entry.gotchas.length / Math.max(entry.codeExamples.length, 1);
-  if (gotchaRatio <= 1.5) score += 15;
-  else if (gotchaRatio <= 3) score += 8;
-  else score += 3;
 
   return score / maxScore;
 }
 
-// ─── Pricing Fit ──────────────────────────────────────────────────────────────
+// ─── 4. Pricing Fit ───────────────────────────────────────────────────────────
 
 function scorePricingFit(
   entry: ApiEntry,
   constraints?: SearchConstraints
 ): number {
-  let score = 0.5; // Neutral baseline
-
   if (constraints?.preferFree) {
+    // preferFree: generous free tier or open source scores highest
     if (entry.pricing.model === "free" || entry.pricing.model === "open_source") {
-      score = 1.0;
-    } else if (
-      entry.pricing.model === "freemium" &&
-      entry.pricing.freeTier !== null
-    ) {
-      score = 0.85;
-    } else if (entry.pricing.model === "usage_based") {
-      score = 0.6; // Usage-based can be effectively free at low usage
-    } else {
-      score = 0.2; // Paid only
+      return 1.0;
     }
-  } else {
-    // No pricing preference — slight boost for usage-based (no upfront cost)
+    if (entry.pricing.model === "freemium" && entry.pricing.freeTier !== null) {
+      return 0.85;
+    }
     if (entry.pricing.model === "usage_based") {
-      score = 0.65;
-    } else if (entry.pricing.model === "freemium") {
-      score = 0.6;
-    } else if (entry.pricing.model === "free" || entry.pricing.model === "open_source") {
-      score = 0.7;
-    } else {
-      score = 0.5;
+      return 0.60; // Can be free at low usage
     }
+    return 0.20; // Paid-only is a poor match
   }
 
-  return score;
+  // No pricing constraint — slight boost for easy-to-start options
+  if (entry.pricing.model === "free" || entry.pricing.model === "open_source") {
+    return 0.70;
+  }
+  if (entry.pricing.model === "freemium") {
+    return 0.65;
+  }
+  if (entry.pricing.model === "usage_based") {
+    return 0.60;
+  }
+  return 0.50; // Paid — neutral
+}
+
+// ─── 5. Keyword Relevance ─────────────────────────────────────────────────────
+
+/**
+ * Direct keyword relevance: checks if query tokens appear in name/slug/subcategory.
+ * This rewards exact API name matches ("algolia" for search queries, "stripe" for payments).
+ */
+function scoreKeywordRelevance(entry: ApiEntry, queryTokens: Set<string>): number {
+  const nameTokens = tokenize(entry.name);
+  const slugTokens = tokenize(entry.slug.replace(/-/g, " "));
+  const subCatTokens = tokenize(entry.subcategory.replace(/-/g, " "));
+
+  // Boost when API name or slug appears in query (user named the tool directly)
+  const nameMatch = tokenOverlap(queryTokens, nameTokens);
+  const slugMatch = tokenOverlap(queryTokens, slugTokens);
+  const subCatMatch = tokenOverlap(queryTokens, subCatTokens);
+
+  // Name match is strongest signal (user asked for "stripe" or "algolia" by name)
+  return Math.min(nameMatch * 0.5 + slugMatch * 0.3 + subCatMatch * 0.2, 1.0);
+}
+
+// ─── 6. Recency Bonus ─────────────────────────────────────────────────────────
+
+const NOW_MS = Date.now();
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Recency bonus: entries verified within 30 days score 1.0.
+ * Scales linearly to 0 at 365 days. Older entries score 0.
+ */
+function scoreRecency(entry: ApiEntry): number {
+  try {
+    const verifiedMs = new Date(entry.lastVerified).getTime();
+    const daysOld = (NOW_MS - verifiedMs) / MS_PER_DAY;
+    if (daysOld <= 30) return 1.0;
+    if (daysOld <= 365) return 1.0 - (daysOld - 30) / 335;
+    return 0;
+  } catch {
+    return 0;
+  }
 }
 
 // ─── Category Boost ───────────────────────────────────────────────────────────
 
-/**
- * When a category is detected with high confidence, apply a multiplicative
- * boost to APIs in that category to help them surface over noisy competitors.
- */
 function applyCategoryBoost(
   score: number,
   entry: ApiEntry,
@@ -249,34 +295,72 @@ function applyCategoryBoost(
   detectedConfidence: number
 ): number {
   if (!detectedCategory || detectedConfidence < 0.4) return score;
-
   if (entry.category === detectedCategory) {
-    // Boost: up to 15% for high-confidence matches
-    const boost = detectedConfidence * 0.15;
+    const boost = detectedConfidence * 0.12; // Up to 12% boost
     return Math.min(score * (1 + boost), 1.0);
   }
   return score;
 }
 
-// ─── Main Scoring Function ────────────────────────────────────────────────────
+// ─── Confidence Score ─────────────────────────────────────────────────────────
+
+/**
+ * Compute a confidence value (0-1) for how certain we are about the top result.
+ *
+ * High confidence (>0.8): strong category match + high useCaseFit score
+ * Medium confidence (0.5-0.8): partial signals
+ * Low confidence (<0.5): weak query, no clear category
+ */
+export function computeConfidence(
+  topResult: RankedResult,
+  detectedCategory: string | null,
+  detectedConfidence: number,
+  allResults: RankedResult[]
+): number {
+  const useCaseFit = topResult.scoreBreakdown["useCaseFit"] ?? 0;
+  const totalScore = topResult.score;
+
+  // Factor 1: useCaseFit raw score quality
+  const fitSignal = Math.min(useCaseFit / 0.5, 1.0); // 0.5+ useCaseFit → full signal
+
+  // Factor 2: category detection confidence
+  const catSignal = detectedCategory ? detectedConfidence : 0;
+
+  // Factor 3: score separation (top result vs runner-up)
+  const separation =
+    allResults.length >= 2
+      ? Math.min((totalScore - allResults[1]!.score) * 5, 1.0)
+      : 0.5;
+
+  // Weighted combination
+  const raw = fitSignal * 0.40 + catSignal * 0.35 + separation * 0.25;
+  return Math.round(Math.min(raw, 1.0) * 100) / 100;
+}
+
+/** Human-readable confidence label */
+export function confidenceLabel(confidence: number): "high" | "medium" | "low" {
+  if (confidence >= 0.7) return "high";
+  if (confidence >= 0.4) return "medium";
+  return "low";
+}
+
+// ─── Scoring Context (passed from search.ts) ──────────────────────────────────
 
 export interface ScoringContext {
-  /** Synonym-expanded query for richer matching */
   expandedQuery: string;
-  /** Detected category from the query */
   detectedCategory: string | null;
-  /** Confidence in the detected category (0-1) */
   detectedConfidence: number;
 }
+
+// ─── Main Scoring Function ────────────────────────────────────────────────────
 
 export function scoreEntry(
   entry: ApiEntry,
   query: string,
   constraints?: SearchConstraints,
-  weights: ScoreWeights = DEFAULT_WEIGHTS,
+  weights: ScoreWeights = SCORING_WEIGHTS,
   context?: ScoringContext
 ): RankedResult {
-  // Use expanded query for tokenization if available
   const effectiveQuery = context?.expandedQuery ?? query;
   const queryTokens = tokenize(effectiveQuery);
 
@@ -284,14 +368,17 @@ export function scoreEntry(
   const qualityRaw = scoreQuality(entry);
   const devExperienceRaw = scoreDevExperience(entry, constraints);
   const pricingFitRaw = scorePricingFit(entry, constraints);
+  const keywordRelevanceRaw = scoreKeywordRelevance(entry, queryTokens);
+  const recencyRaw = scoreRecency(entry);
 
   const baseScore =
     useCaseFitRaw * weights.useCaseFit +
     qualityRaw * weights.qualityScore +
-    devExperienceRaw * weights.devExperience +
-    pricingFitRaw * weights.pricingFit;
+    devExperienceRaw * weights.developerExperience +
+    pricingFitRaw * weights.pricingFit +
+    keywordRelevanceRaw * weights.keywordRelevance +
+    recencyRaw * weights.recencyBonus;
 
-  // Apply category boost from detected category
   const totalScore = applyCategoryBoost(
     baseScore,
     entry,
@@ -302,8 +389,10 @@ export function scoreEntry(
   const scoreBreakdown: Record<string, number> = {
     useCaseFit: Math.round(useCaseFitRaw * 100) / 100,
     qualityScore: Math.round(qualityRaw * 100) / 100,
-    devExperience: Math.round(devExperienceRaw * 100) / 100,
+    developerExperience: Math.round(devExperienceRaw * 100) / 100,
     pricingFit: Math.round(pricingFitRaw * 100) / 100,
+    keywordRelevance: Math.round(keywordRelevanceRaw * 100) / 100,
+    recencyBonus: Math.round(recencyRaw * 100) / 100,
     total: Math.round(totalScore * 100) / 100,
   };
 
@@ -317,7 +406,7 @@ export function rankEntries(
   query: string,
   constraints?: SearchConstraints,
   topN: number = 3,
-  weights: ScoreWeights = DEFAULT_WEIGHTS,
+  weights: ScoreWeights = SCORING_WEIGHTS,
   context?: ScoringContext
 ): RankedResult[] {
   if (entries.length === 0) return [];
@@ -326,8 +415,6 @@ export function rankEntries(
     scoreEntry(entry, query, constraints, weights, context)
   );
 
-  // Sort descending by total score
   scored.sort((a, b) => b.score - a.score);
-
   return scored.slice(0, topN);
 }

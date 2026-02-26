@@ -1,0 +1,20 @@
+# Development
+src/
+tests/
+scripts/
+docs/
+.github/
+
+# Data
+data/
+
+# Config
+tsconfig.json
+vitest.config.*
+*.config.ts
+*.config.js
+
+# Misc
+.env*
+*.log
+.DS_Store

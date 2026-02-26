@@ -9,19 +9,21 @@ API Oracle is an MCP server that gives Claude Code the ability to find, evaluate
 Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSON entries
 ```
 
-**Current state (v0.4.0):**
+**Current state (v0.5.0):**
 - 68 API entries across 23 categories
 - 4 MCP tools: find_best_api, compare_apis, get_api_setup_guide, check_api_freshness
-- 141 tests passing
+- Web dashboard at http://localhost:3737 (`npm run dashboard`)
+- CLI entry point: `api-oracle serve|dashboard`
+- 160 tests passing
 - Auto-updater system with staleness tracking and quality linter
 
 ## Available npm Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm run dev` | Run server directly with tsx (no compile needed) |
-| `npm test` | Run all tests with Vitest (141 tests) |
+| `npm run build` | Compile TypeScript to `dist/` + copy `src/dashboard/public` to `dist/` |
+| `npm run dev` | Run MCP server directly with tsx (no compile needed) |
+| `npm test` | Run all tests with Vitest (160 tests) |
 | `npm run test:watch` | Watch mode for tests |
 | `npm run validate` | Validate all JSON entries against schema + cross-references (CI-safe) |
 | `npm run seed` | Load all JSON entries into SQLite database |
@@ -29,6 +31,7 @@ Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSO
 | `npm run analyze` | Score representative queries and show breakdown (requires seeded DB) |
 | `npm run refresh-report` | Check entry staleness (--brief, --format=json, --level=stale) |
 | `npm run lint-entries` | Lint entry quality (--severity=warning, --slug=<slug>, --summary) |
+| `npm run dashboard` | Start web dashboard at http://localhost:3737 |
 
 ## Code Conventions
 
@@ -51,8 +54,10 @@ Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSO
 | **Scorer** | `src/knowledge/scorer.ts` | Weighted multi-factor ranking (6 dimensions + category boost) |
 | **Tools** | `src/tools/*.ts` | MCP tool handlers — format results for Claude |
 | **Updater** | `src/updater/*.ts` | Staleness checker, version tracker, report formatter, quality linter |
+| **Dashboard** | `src/dashboard/` | Express web dashboard — REST API + vanilla JS/CSS/HTML frontend |
+| **CLI** | `src/cli.ts` | `api-oracle serve|dashboard` CLI entry point |
 | **Server** | `src/server.ts` | McpServer setup, tool registration |
-| **Entry** | `src/index.ts` | Startup: init DB, start server |
+| **Entry** | `src/index.ts` | MCP startup: init DB, start server |
 | **Entries** | `src/entries/**/*.json` | API knowledge base (one JSON per API, 68 total) |
 | **Scripts** | `scripts/*.ts` | seed-db, validate-entries, e2e-test, scoring-analysis, refresh-report, lint-entries |
 
@@ -137,6 +142,7 @@ Tests use in-memory SQLite so there's no filesystem side effect. All tests are i
 - `tests/knowledge/` — schema, db, synonyms, TF-IDF, scorer
 - `tests/tools/` — MCP tool integration tests (find-api)
 - `tests/updater/` — staleness checker, version tracker, linter
+- `tests/dashboard/` — dashboard REST API integration tests (all 8 endpoints)
 
 ## Auto-Updater System
 

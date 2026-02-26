@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Oracle</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <span class="logo-icon">🔮</span>
+        <span class="logo-text">API Oracle</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-view="dashboard">
+          <span class="nav-icon">⊞</span> Dashboard
+        </a>
+        <a href="#report" class="nav-item" data-view="report">
+          <span class="nav-icon">📋</span> Refresh Report
+        </a>
+        <a href="#lint" class="nav-item" data-view="lint">
+          <span class="nav-icon">✓</span> Linter
+        </a>
+        <a href="#test" class="nav-item" data-view="test">
+          <span class="nav-icon">🔍</span> Search Test
+        </a>
+      </nav>
+      <div class="sidebar-categories">
+        <div class="sidebar-section-title">Categories</div>
+        <div id="category-list">
+          <a class="category-item active" data-category="all" href="#category=all">
+            All <span class="category-count" id="cat-count-all">—</span>
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- DASHBOARD VIEW -->
+      <div id="view-dashboard" class="view active">
+        <header class="main-header">
+          <div class="stats-bar" id="stats-bar">
+            <div class="stat-item"><span class="stat-num" id="stat-total">—</span><span class="stat-label">APIs</span></div>
+            <div class="stat-item"><span class="stat-num" id="stat-categories">—</span><span class="stat-label">Categories</span></div>
+            <div class="stat-item"><span class="stat-num stat-green" id="stat-fresh">—</span><span class="stat-label">Fresh</span></div>
+            <div class="stat-item"><span class="stat-num stat-yellow" id="stat-aging">—</span><span class="stat-label">Aging</span></div>
+            <div class="stat-item"><span class="stat-num stat-red" id="stat-stale">—</span><span class="stat-label">Stale+</span></div>
+            <div class="stat-item"><span class="stat-num" id="stat-avg-score">—</span><span class="stat-label">Avg Score</span></div>
+          </div>
+          <div class="search-bar">
+            <input
+              type="text"
+              id="search-input"
+              class="search-input"
+              placeholder="Search APIs… try 'send emails' or 'deploy my app' or 'real-time chat'"
+              autocomplete="off"
+            >
+            <button class="search-clear" id="search-clear" hidden>✕</button>
+          </div>
+          <div class="toolbar">
+            <span id="results-count" class="results-count"></span>
+            <div class="sort-controls">
+              <label class="sort-label">Sort:</label>
+              <select id="sort-select" class="sort-select">
+                <option value="qualityScore-desc">Quality ↓</option>
+                <option value="qualityScore-asc">Quality ↑</option>
+                <option value="name-asc">Name A–Z</option>
+                <option value="name-desc">Name Z–A</option>
+                <option value="lastVerified-desc">Newest first</option>
+                <option value="staleness-desc">Most stale</option>
+              </select>
+            </div>
+          </div>
+        </header>
+
+        <div id="entries-grid" class="entries-grid">
+          <div class="loading-state">Loading…</div>
+        </div>
+      </div>
+
+      <!-- REFRESH REPORT VIEW -->
+      <div id="view-report" class="view">
+        <header class="view-header">
+          <h1>Refresh Report</h1>
+          <p class="view-subtitle">Entries that need their information verified and updated.</p>
+        </header>
+        <div id="report-content" class="report-content">
+          <div class="loading-state">Loading…</div>
+        </div>
+      </div>
+
+      <!-- LINTER VIEW -->
+      <div id="view-lint" class="view">
+        <header class="view-header">
+          <h1>Quality Linter</h1>
+          <p class="view-subtitle">Content quality checks beyond schema validation.</p>
+        </header>
+        <div id="lint-content" class="lint-content">
+          <div class="loading-state">Loading…</div>
+        </div>
+      </div>
+
+      <!-- SEARCH TEST VIEW -->
+      <div id="view-test" class="view">
+        <header class="view-header">
+          <h1>Search Test Tool</h1>
+          <p class="view-subtitle">Test search quality and inspect score breakdowns.</p>
+        </header>
+        <div class="search-test-box">
+          <div class="search-test-input-row">
+            <input type="text" id="test-query-input" class="search-input" placeholder="Enter a search query…">
+            <button id="test-query-btn" class="btn btn-primary">Search</button>
+          </div>
+          <div class="test-presets">
+            <span class="preset-label">Try:</span>
+            <button class="preset-btn" data-q="send transactional emails">send transactional emails</button>
+            <button class="preset-btn" data-q="deploy a Next.js app">deploy a Next.js app</button>
+            <button class="preset-btn" data-q="add user authentication">add user authentication</button>
+            <button class="preset-btn" data-q="run background jobs">run background jobs</button>
+            <button class="preset-btn" data-q="real-time chat">real-time chat</button>
+          </div>
+        </div>
+        <div id="test-results" class="test-results"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- DETAIL MODAL -->
+  <div id="detail-modal" class="modal-overlay" hidden>
+    <div class="modal-container">
+      <button class="modal-close" id="modal-close">✕</button>
+      <div id="modal-content" class="modal-content">
+        <div class="loading-state">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

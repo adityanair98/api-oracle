@@ -4,95 +4,151 @@ An MCP server that gives Claude Code the ability to find, evaluate, and recommen
 
 When a developer asks *"what should I use to send emails?"* — API Oracle returns a structured recommendation with working code, honest gotchas, pricing details, and everything needed to get started immediately.
 
-## What It Does
+[![CI](https://github.com/adityanair/api-oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/adityanair/api-oracle/actions/workflows/ci.yml)
 
-Exposes 3 MCP tools to Claude Code:
+---
 
-| Tool | Description |
+## MCP Tools
+
+| Tool | What it does |
 |------|-------------|
-| `find_best_api` | Recommend the best API for a task with quick-start code |
-| `compare_apis` | Side-by-side comparison of 2-5 APIs |
-| `get_api_setup_guide` | Complete setup instructions for a specific API |
+| `find_best_api` | Recommends the best API for a task with quick-start code |
+| `compare_apis` | Side-by-side comparison of 2–5 APIs |
+| `get_api_setup_guide` | Full setup instructions for a specific API |
+| `check_api_freshness` | Staleness report showing which entries need re-verification |
 
-## Knowledge Base
-
-35 curated API entries across 13 categories:
+## Knowledge Base — 68 APIs across 23 categories
 
 | Category | APIs |
 |----------|------|
-| Email | Resend, SendGrid, Postmark |
-| Payments | Stripe, Razorpay |
-| AI | OpenAI, Anthropic, Replicate, Resemble AI |
-| Storage | Cloudinary, UploadThing |
-| Auth | Clerk, Auth0 |
+| AI | Anthropic, OpenAI, Replicate, Resemble AI, Stability AI, ElevenLabs |
+| Analytics | PostHog, Sentry |
+| Auth | Auth0, Clerk |
+| CMS | Contentful, Sanity, Strapi |
+| Commerce | Medusa, Shopify API |
+| Communication | Sendbird, Stream Chat |
+| Database | Firebase, Neon, PlanetScale, Supabase, Upstash |
+| DevOps | Fly.io, Netlify, Railway, Vercel |
+| Email | Mailgun, Postmark, Resend, SendGrid |
+| Forms | Formspark, Typeform |
+| Infrastructure | AWS S3, Cloudflare R2, Cloudflare Workers, DigitalOcean Spaces |
+| Integration | Nango, Zapier |
+| Maps | Google Maps, Mapbox |
+| Media | Deepgram, imgix, Mux |
+| Messaging | Ably, Pusher, Twilio, Vonage |
+| Notifications | Knock, Novu, OneSignal |
+| Payments | LemonSqueezy, Paddle, PayPal, Razorpay, Square, Stripe |
+| Scheduling | Cal.com, Calendly |
 | Search | Algolia |
-| Messaging | Twilio, Vonage, Pusher, Ably |
-| Communication | Stream Chat, Sendbird |
-| Database | Supabase, Firebase, PlanetScale, Upstash, Neon |
-| Media | Mux, Deepgram, imgix |
-| Maps | Mapbox, Google Maps Platform |
-| Notifications | OneSignal, Knock, Novu |
-| Analytics | Sentry, PostHog |
+| Security | Arcjet, Snyk |
+| Storage | Cloudinary, UploadThing |
+| Testing | BrowserStack, Checkly |
+| Workflow | Inngest, Temporal, Trigger.dev |
+
+---
 
 ## Quick Start
 
-### 1. Install dependencies
+### Option A — npx (no install)
 
 ```bash
-node --version  # Must be >= 24.x (see .nvmrc)
-npm install
+npx api-oracle serve
 ```
 
-### 2. Build
+### Option B — global install
 
 ```bash
-npm run build
+npm install -g api-oracle
+api-oracle serve
 ```
 
-### 3. Seed the database
+### Connect to Claude Code
 
-```bash
-npm run seed
-```
-
-### 4. Connect to Claude Code
-
-Add to `~/.claude/claude.json` under `mcpServers`:
+Add to `~/.claude/claude_desktop_config.json` under `mcpServers`:
 
 ```json
 {
   "mcpServers": {
     "api-oracle": {
-      "command": "node",
-      "args": ["dist/index.js"],
-      "cwd": "/absolute/path/to/api-oracle"
+      "command": "api-oracle",
+      "args": ["serve"]
     }
   }
 }
 ```
 
-### 5. Restart Claude Code
+Restart Claude Code. The `api-oracle` server will appear in your MCP servers list.
 
-The `api-oracle` server will now appear in your MCP servers list.
+---
 
-## Development
+## Web Dashboard
+
+API Oracle includes a local web dashboard to browse, search, and manage the knowledge base.
 
 ```bash
-npm run dev        # Run with tsx (no build needed)
-npm test           # Run unit tests (104 tests)
-npm run validate   # Validate all JSON entries + cross-references
-npm run seed       # Seed database
-npm run e2e        # Run 12 end-to-end query scenarios (43 assertions)
-npm run analyze    # Score 20 representative queries and show breakdown
+api-oracle dashboard
+# Opens at http://localhost:3737
 ```
+
+Dashboard features:
+- Browse all 68 APIs with search and category filtering
+- Quality scores, staleness indicators, pricing info
+- Detail modal with full entry: code examples, gotchas, rate limits
+- Refresh report — shows which entries need re-verification
+- Quality linter — content quality checks beyond schema validation
+- Search test tool — inspect score breakdowns for any query
+
+---
+
+## From Source
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/adityanair/api-oracle.git
+cd api-oracle
+npm install
+```
+
+### 2. Build and seed
+
+```bash
+npm run build
+npm run seed
+```
+
+### 3. Run
+
+```bash
+# MCP server (stdio)
+node dist/cli.js serve
+
+# Web dashboard
+node dist/cli.js dashboard
+```
+
+### Development scripts
+
+```bash
+npm run dev            # Run MCP server with tsx (no build needed)
+npm test               # Run all tests (160 tests)
+npm run validate       # Validate all JSON entries + cross-references
+npm run lint-entries   # Content quality linter (0 errors, 15 warnings)
+npm run e2e            # End-to-end query scenarios (43 assertions)
+npm run dashboard      # Start dashboard with tsx
+```
+
+---
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_PATH` | `./data/api-oracle.db` | SQLite database file location |
-| `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
-| `NODE_ENV` | `development` | Environment |
+| `DB_PATH` | `./data/api-oracle.db` | SQLite database path |
+| `PORT` | `3737` | Dashboard server port |
+| `LOG_LEVEL` | `info` | Log level: debug \| info \| warn \| error |
+
+---
 
 ## Adding New APIs
 
@@ -104,60 +160,57 @@ npm run analyze    # Score 20 representative queries and show breakdown
 
 See [docs/adding-apis.md](docs/adding-apis.md) for the full guide and JSON template.
 
+---
+
 ## Architecture
 
 ```
 src/
-├── index.ts              # Entry point
+├── cli.ts                # CLI entry point (api-oracle serve|dashboard)
+├── index.ts              # MCP server entry point
 ├── server.ts             # McpServer setup + tool registration
 ├── tools/                # MCP tool handlers
 │   ├── find-api.ts       # find_best_api
 │   ├── compare-apis.ts   # compare_apis
-│   └── get-setup-guide.ts# get_api_setup_guide
+│   ├── get-setup-guide.ts# get_api_setup_guide
+│   └── check-freshness.ts# check_api_freshness
 ├── knowledge/            # Core logic
 │   ├── schema.ts         # Zod schema + TypeScript types
 │   ├── db.ts             # SQLite CRUD (better-sqlite3)
-│   ├── search.ts         # Search entry point (pipeline orchestration)
+│   ├── search.ts         # Search pipeline orchestration
 │   ├── scorer.ts         # Weighted multi-factor ranking engine
-│   ├── synonyms.ts       # Query expansion, phrase detection, category detection
+│   ├── synonyms.ts       # Query expansion + category detection
 │   └── tfidf.ts          # TF-IDF in-memory search index
-├── entries/              # API knowledge base (35 JSON files)
-│   ├── ai/               # openai, anthropic, replicate, resemble-ai
-│   ├── analytics/        # sentry, posthog
-│   ├── auth/             # clerk, auth0
-│   ├── communication/    # stream-chat, sendbird
-│   ├── database/         # supabase, firebase, planetscale, upstash, neon
-│   ├── email/            # resend, sendgrid, postmark
-│   ├── maps/             # mapbox, google-maps
-│   ├── media/            # mux, deepgram, imgix
-│   ├── messaging/        # twilio, vonage, pusher, ably
-│   ├── notifications/    # onesignal, knock, novu
-│   ├── payments/         # stripe, razorpay
-│   ├── search/           # algolia
-│   └── storage/          # cloudinary, uploadthing
+├── updater/              # Freshness and quality system
+│   ├── staleness.ts      # Staleness level detection
+│   ├── report.ts         # Freshness report builder
+│   ├── linter.ts         # Content quality linter
+│   └── version-tracker.ts# Entry version management
+├── dashboard/            # Web dashboard
+│   ├── server.ts         # Express server
+│   ├── routes/api.ts     # REST API routes
+│   └── public/           # Vanilla HTML/CSS/JS frontend
+├── entries/              # 68 JSON API entries
+│   └── <category>/<slug>.json
 └── utils/
     ├── logger.ts         # Structured stderr logger
     └── config.ts         # Environment config
 ```
 
-See [docs/scoring-logic.md](docs/scoring-logic.md) for how the ranking algorithm works.
-
-## How Search Works (v0.3)
+## How Search Works
 
 1. **Phrase detection** — extracts `preferFree`, `preferOpenSource`, etc. from natural language
 2. **Synonym expansion** — "crashes" → error tracking; "log in" → auth; "billing" → payments
 3. **Category detection** — maps query to a category with confidence score
-4. **TF-IDF candidate selection** — field-weighted index pre-ranks all 35 entries; no LIKE queries
-5. **Multi-factor scoring** — 6 dimensions: useCaseFit (35%), quality (20%), devExperience (15%), pricingFit (15%), keywords (10%), recency (5%)
+4. **TF-IDF candidate selection** — field-weighted index pre-ranks all 68 entries
+5. **Multi-factor scoring** — useCaseFit (40%) + quality (25%) + devExperience (20%) + pricingFit (15%)
 6. **Category boost** — entries in the detected category receive up to 12% score boost
-7. **Confidence** — top result gets a 0-1 confidence score with "high/medium/low" label
+7. **Confidence** — top result gets a 0–1 confidence score
 
-Result: **20/20 scoring analysis queries return sensible results** (up from 17/20 in v0.2).
+See [docs/scoring-logic.md](docs/scoring-logic.md) for full details.
 
-## Roadmap (V0.4+)
+---
 
-- **More APIs** — Datadog, Cloudflare Workers KV, Resend v2 webhooks, etc.
-- **`list_apis_by_category` tool** — expose category browsing as a new MCP tool
-- **Graph scoring** — boost APIs commonly used together (via `complementary` field)
-- **Popularity signals** — GitHub stars, npm downloads as quality proxy
-- **Live validation** — periodically verify pricing/rate limits are still accurate
+## License
+
+MIT

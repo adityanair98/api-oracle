@@ -86,6 +86,8 @@ export function registerFindBestApi(server: McpServer): void {
             slug: entry.slug,
             why: `${entry.bestFor}. ${entry.qualityJustification}`,
             qualityScore: entry.qualityScore,
+            confidence: top!.confidence ?? null,
+            confidenceLabel: top!.confidenceLabel ?? null,
             scoreBreakdown: top!.scoreBreakdown,
             quickStart: {
               install: entry.sdk.installCommand,

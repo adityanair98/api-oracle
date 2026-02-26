@@ -1,0 +1,94 @@
+{
+  "name": "Neon",
+  "slug": "neon",
+  "category": "database",
+  "subcategory": "serverless-postgres",
+  "website": "https://neon.tech",
+  "description": "Neon is a serverless PostgreSQL platform that separates storage and compute, allowing databases to scale to zero when idle (no charges when not in use). It provides instant branching for development workflows, a serverless driver optimized for edge functions, and full PostgreSQL compatibility — making it the best serverless Postgres option for cost-conscious teams.",
+  "useCases": [
+    {
+      "task": "Run a serverless PostgreSQL database that scales to zero",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add a Postgres database to a Next.js or serverless application",
+      "fit": "perfect"
+    },
+    {
+      "task": "Create database branches for development and preview environments",
+      "fit": "perfect"
+    },
+    {
+      "task": "Use Drizzle or Prisma ORM with a hosted Postgres database",
+      "fit": "perfect"
+    },
+    {
+      "task": "High-throughput OLTP workloads requiring consistent low latency",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at neon.tech",
+      "Create a new project (choose a region)",
+      "Go to the Dashboard and find your connection string",
+      "Copy the connection string (includes host, database, user, password)",
+      "Set DATABASE_URL environment variable with the connection string"
+    ],
+    "envVarName": "DATABASE_URL",
+    "codeSnippet": "import { neon } from '@neondatabase/serverless';\nconst sql = neon(process.env.DATABASE_URL!);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "1 project, 0.5GB storage, 190 compute hours/month (scales to zero)",
+    "startingPrice": "$19/month (Launch plan) for 10GB storage, 300 compute hours",
+    "costPer": "Launch: $0.16/GB-month storage, $0.10/compute-hour above included amount",
+    "pricingUrl": "https://neon.tech/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "0.5 compute units (shared CPU), 190 compute hours/month",
+    "notes": "Neon scales to zero after a period of inactivity (default 5 minutes on free tier). The first query after scaling to zero has a cold start of 100-500ms. Pro plan has configurable scale-to-zero.",
+    "retryStrategy": "Implement retry logic for cold start scenarios (connection timeout on first request). The @neondatabase/serverless driver handles HTTP connections for edge environments."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @neondatabase/serverless",
+    "importStatement": "import { neon } from '@neondatabase/serverless';",
+    "otherLanguages": ["python", "go", "java", "ruby"]
+  },
+  "codeExamples": [
+    {
+      "title": "Query with the serverless driver",
+      "language": "typescript",
+      "code": "import { neon } from '@neondatabase/serverless';\n\nconst sql = neon(process.env.DATABASE_URL!);\n\n// Tagged template literal syntax (safe against SQL injection)\nconst userId = 'user-123';\nconst users = await sql`\n  SELECT id, name, email, created_at\n  FROM users\n  WHERE id = ${userId}\n  LIMIT 1\n`;\n\nconsole.log('User:', users[0]);\n\n// Insert with RETURNING\nconst [newPost] = await sql`\n  INSERT INTO posts (title, body, user_id)\n  VALUES (${'Hello World'}, ${'My first post'}, ${userId})\n  RETURNING *\n`;\n\nconsole.log('Created post:', newPost.id);",
+      "notes": "The tagged template literal syntax automatically parameterizes values, preventing SQL injection. Use the neon() client for edge/serverless functions. For Node.js with connection pooling, use Pool from @neondatabase/serverless."
+    },
+    {
+      "title": "Use with Drizzle ORM",
+      "language": "typescript",
+      "code": "import { neon } from '@neondatabase/serverless';\nimport { drizzle } from 'drizzle-orm/neon-http';\nimport { users, posts } from './schema';\nimport { eq, desc } from 'drizzle-orm';\n\nconst sql = neon(process.env.DATABASE_URL!);\nconst db = drizzle(sql);\n\n// Type-safe query with Drizzle\nconst recentPosts = await db\n  .select({\n    id: posts.id,\n    title: posts.title,\n    authorName: users.name,\n  })\n  .from(posts)\n  .leftJoin(users, eq(posts.userId, users.id))\n  .orderBy(desc(posts.createdAt))\n  .limit(10);\n\nconsole.log('Recent posts:', recentPosts);",
+      "notes": "Drizzle with neon-http adapter is optimized for serverless. Install: npm install --save-exact drizzle-orm drizzle-kit. Define your schema in a separate file."
+    }
+  ],
+  "gotchas": [
+    "Neon scales to zero by default, which means the first query after idle has a cold start latency of 100-500ms. For user-facing requests, this can be noticeable. Configure a longer scale-to-zero timeout or keep-alive pings if cold starts are unacceptable.",
+    "The free tier's 190 compute hours/month sounds generous, but if your database doesn't scale to zero (e.g., you keep it warm), you'll use ~190/730 = ~26% of a compute unit continuously, exhausting the free tier in roughly 26% of a month at full utilization.",
+    "Neon uses a different connection pooler (PgBouncer) than standard Postgres. When using Prisma, use the pooled connection string (ends in ?pgbouncer=true) for the application and the direct connection string for migrations.",
+    "Neon database branches are NOT like git branches that you can merge. Schema changes on a branch don't automatically apply to the parent branch. Branching is mainly for isolated development/testing environments."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.95% uptime SLA on paid plans",
+    "statusPageUrl": "https://neonstatus.com",
+    "notes": "Neon stores data on AWS S3 with multi-AZ redundancy. Automatic failover and point-in-time recovery on paid plans."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Best serverless Postgres for cost-sensitive projects — scale-to-zero billing means you only pay for actual usage. Full PostgreSQL compatibility with no compromises (unlike MySQL-based alternatives). Database branching is genuinely useful for CI/CD. Cold start latency is the main tradeoff.",
+  "alternatives": ["supabase", "planetscale"],
+  "complementary": ["drizzle-orm", "clerk", "stripe", "resend"],
+  "bestFor": "Serverless PostgreSQL that scales to zero — ideal for applications with variable traffic, preview environments, and teams using Drizzle or Prisma",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

@@ -1,0 +1,95 @@
+{
+  "name": "PlanetScale",
+  "slug": "planetscale",
+  "category": "database",
+  "subcategory": "serverless-mysql",
+  "website": "https://planetscale.com",
+  "description": "PlanetScale is a serverless MySQL-compatible database platform built on Vitess (the technology powering YouTube's database). It offers horizontal sharding, non-blocking schema changes via branching, and a connection architecture optimized for serverless environments — without the operational overhead of managing MySQL.",
+  "useCases": [
+    {
+      "task": "Run MySQL-compatible database workloads at scale without operations",
+      "fit": "perfect"
+    },
+    {
+      "task": "Deploy schema changes safely without table locks in production",
+      "fit": "perfect"
+    },
+    {
+      "task": "Use a serverless-optimized database with connection pooling built in",
+      "fit": "perfect"
+    },
+    {
+      "task": "Use Prisma ORM with a hosted MySQL database",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run complex PostgreSQL-specific features or extensions",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at planetscale.com",
+      "Create a new database",
+      "Create a branch (main is your production branch)",
+      "Go to the branch's Connect tab",
+      "Select your connection method (e.g., Prisma, general) and generate credentials",
+      "Set DATABASE_URL environment variable with the provided connection string"
+    ],
+    "envVarName": "DATABASE_URL",
+    "codeSnippet": "// In .env: DATABASE_URL='mysql://username:password@host/dbname?sslaccept=strict'\n// With Prisma:\nimport { PrismaClient } from '@prisma/client';\nconst prisma = new PrismaClient();"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "1 database, 5GB storage, 1 billion row reads/month, 10M row writes/month",
+    "startingPrice": "$39/month (Scaler plan) for 10GB storage, 100B row reads",
+    "costPer": "Scaler: $39/month/database; additional storage at $2.50/GB/month",
+    "pricingUrl": "https://planetscale.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier (Hobby)",
+    "limit": "1 billion row reads/month, 10M row writes/month, 1,000 concurrent connections",
+    "notes": "PlanetScale uses a serverless driver that supports HTTP connections, eliminating traditional connection pool limits for serverless functions.",
+    "retryStrategy": "Use PlanetScale's @planetscale/database serverless driver for edge/serverless environments; it uses fetch() over HTTP instead of TCP connections"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @planetscale/database",
+    "importStatement": "import { connect } from '@planetscale/database';",
+    "otherLanguages": ["python", "go", "ruby", "java", "php"]
+  },
+  "codeExamples": [
+    {
+      "title": "Query with the serverless driver",
+      "language": "typescript",
+      "code": "import { connect } from '@planetscale/database';\n\nconst conn = connect({\n  url: process.env.DATABASE_URL!,\n});\n\n// Execute a query\nconst results = await conn.execute(\n  'SELECT * FROM users WHERE email = ? LIMIT 1',\n  ['jane@example.com']\n);\n\nconsole.log('User:', results.rows[0]);\n\n// Insert a record\nconst insert = await conn.execute(\n  'INSERT INTO users (name, email, created_at) VALUES (?, ?, NOW())',\n  ['Jane Smith', 'jane@example.com']\n);\n\nconsole.log('Inserted ID:', insert.insertId);",
+      "notes": "The @planetscale/database driver uses HTTP (fetch) instead of TCP connections — it works in Vercel Edge Functions, Cloudflare Workers, and any serverless environment."
+    },
+    {
+      "title": "Use with Prisma ORM",
+      "language": "typescript",
+      "code": "// prisma/schema.prisma\n// datasource db {\n//   provider     = \"mysql\"\n//   url          = env(\"DATABASE_URL\")\n//   relationMode = \"prisma\"  // Required for PlanetScale (no FK constraints)\n// }\n\nimport { PrismaClient } from '@prisma/client';\n\nconst prisma = new PrismaClient();\n\n// Use normally\nconst users = await prisma.user.findMany({\n  where: { active: true },\n  orderBy: { createdAt: 'desc' },\n  take: 10,\n});\n\nconsole.log('Active users:', users.length);",
+      "notes": "Set relationMode = 'prisma' in your Prisma schema — PlanetScale disables foreign key constraints at the database level (Vitess limitation). Prisma emulates referential integrity in the client."
+    }
+  ],
+  "gotchas": [
+    "PlanetScale disables foreign key constraints at the database level (Vitess architecture). If you use Prisma, you must set relationMode = 'prisma' in your schema. This affects referential integrity — your app must handle cascading deletes manually.",
+    "PlanetScale's branching model means schema changes go through a deploy request process. You cannot run ALTER TABLE in production directly. This is safer but adds workflow complexity for teams used to running raw migrations.",
+    "The Hobby (free) plan was discontinued in 2024 for new signups. Existing Hobby users were grandfathered. New users start on Scaler ($39/month). Verify current pricing before committing.",
+    "Connection strings contain credentials — never commit them to git. Use environment variables and rotate credentials via the PlanetScale dashboard if compromised."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.999% uptime SLA on paid plans",
+    "statusPageUrl": "https://www.planetscalestatus.com",
+    "notes": "Built on Vitess (used by YouTube, Slack, GitHub). Automatic failover, point-in-time recovery, and daily automated backups on paid plans."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "Excellent MySQL-compatible serverless database with genuinely innovative schema branching workflow. The serverless HTTP driver is a real differentiator for edge deployments. No foreign key constraints is a significant limitation. Pricing change (removing free tier) reduced accessibility for indie developers.",
+  "alternatives": ["supabase", "neon"],
+  "complementary": ["stripe", "clerk", "resend"],
+  "bestFor": "Production-scale MySQL workloads in serverless/edge environments with safe schema migrations via branch-based deployments",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

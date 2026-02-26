@@ -1,0 +1,94 @@
+{
+  "name": "Upstash",
+  "slug": "upstash",
+  "category": "database",
+  "subcategory": "serverless-redis",
+  "website": "https://upstash.com",
+  "description": "Upstash provides serverless Redis and Kafka optimized for edge and serverless environments. With per-request pricing and a REST API, it is the go-to solution for caching, rate limiting, session storage, and queuing in Next.js, Vercel Edge Functions, and Cloudflare Workers where persistent TCP connections are not available.",
+  "useCases": [
+    {
+      "task": "Add Redis caching to a serverless or edge function",
+      "fit": "perfect"
+    },
+    {
+      "task": "Implement rate limiting for API routes",
+      "fit": "perfect"
+    },
+    {
+      "task": "Store session data or ephemeral state in serverless apps",
+      "fit": "perfect"
+    },
+    {
+      "task": "Queue background jobs with Redis lists",
+      "fit": "good"
+    },
+    {
+      "task": "Use as primary persistent database",
+      "fit": "partial"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at upstash.com",
+      "Create a new Redis database (choose region, enable TLS)",
+      "Go to the database details page",
+      "Copy the UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN",
+      "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables"
+    ],
+    "envVarName": "UPSTASH_REDIS_REST_TOKEN",
+    "codeSnippet": "import { Redis } from '@upstash/redis';\nconst redis = new Redis({\n  url: process.env.UPSTASH_REDIS_REST_URL!,\n  token: process.env.UPSTASH_REDIS_REST_TOKEN!,\n});"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "10,000 commands/day, 256MB max database size",
+    "startingPrice": "$0.20 per 100k commands (Pay-as-you-go, no monthly fee)",
+    "costPer": "$0.20 per 100,000 commands; $0.25/GB storage/month",
+    "pricingUrl": "https://upstash.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "10,000 daily commands; 1MB max request/response size",
+    "notes": "Upstash uses a REST API over HTTP — there are no TCP connection limits. Free tier has a daily command quota. Pro plan has higher quotas and bandwidth.",
+    "retryStrategy": "HTTP-based requests; implement standard exponential backoff for 429 and 5xx responses"
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @upstash/redis",
+    "importStatement": "import { Redis } from '@upstash/redis';",
+    "otherLanguages": ["python", "go"]
+  },
+  "codeExamples": [
+    {
+      "title": "Cache API responses with TTL",
+      "language": "typescript",
+      "code": "import { Redis } from '@upstash/redis';\n\nconst redis = new Redis({\n  url: process.env.UPSTASH_REDIS_REST_URL!,\n  token: process.env.UPSTASH_REDIS_REST_TOKEN!,\n});\n\nasync function getCachedUser(userId: string): Promise<User | null> {\n  const cacheKey = `user:${userId}`;\n  \n  // Try cache first\n  const cached = await redis.get<User>(cacheKey);\n  if (cached) return cached;\n  \n  // Cache miss — fetch from database\n  const user = await db.users.findUnique({ where: { id: userId } });\n  if (!user) return null;\n  \n  // Cache for 5 minutes\n  await redis.setex(cacheKey, 300, user);\n  return user;\n}",
+      "notes": "Upstash Redis serializes/deserializes JSON automatically via the @upstash/redis client. Use typed generics (get<User>) for type safety."
+    },
+    {
+      "title": "Rate limiting with sliding window",
+      "language": "typescript",
+      "code": "import { Ratelimit } from '@upstash/ratelimit';\nimport { Redis } from '@upstash/redis';\n\nconst ratelimit = new Ratelimit({\n  redis: Redis.fromEnv(),\n  limiter: Ratelimit.slidingWindow(10, '10 s'), // 10 requests per 10 seconds\n  analytics: true,\n});\n\n// In your API route / middleware\nexport async function middleware(request: Request) {\n  const ip = request.headers.get('x-forwarded-for') ?? 'anonymous';\n  const { success, remaining, reset } = await ratelimit.limit(ip);\n  \n  if (!success) {\n    return new Response('Too Many Requests', {\n      status: 429,\n      headers: { 'Retry-After': String(Math.round((reset - Date.now()) / 1000)) },\n    });\n  }\n  \n  return NextResponse.next();\n}",
+      "notes": "Install @upstash/ratelimit separately: npm install --save-exact @upstash/ratelimit. Redis.fromEnv() reads UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN automatically."
+    }
+  ],
+  "gotchas": [
+    "Upstash Redis uses a REST API (HTTP), not the native Redis TCP protocol. This means you cannot use the standard 'redis' or 'ioredis' npm packages — you must use @upstash/redis. Libraries that depend on a standard Redis connection (like Bull/BullMQ) won't work directly.",
+    "The free tier (10k commands/day) is exhausted quickly in development with hot reload. A Next.js app with frequent refreshes can easily burn through the daily quota during development. Consider using a separate dev database.",
+    "Upstash Redis is eventually consistent for replicated (global) databases. If you need strong consistency (e.g., distributed locks), use a single-region database.",
+    "Data is not persisted forever by default — Redis has eviction policies. Make sure your eviction policy (noeviction, allkeys-lru, etc.) matches your use case."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.99% uptime SLA on paid plans",
+    "statusPageUrl": "https://status.upstash.com",
+    "notes": "Upstash uses AWS and GCP infrastructure. Global replication available for low-latency reads worldwide. REST API works in edge environments where TCP is not available."
+  },
+  "qualityScore": 8,
+  "qualityJustification": "The best serverless Redis solution — the HTTP REST API is a genuine differentiator for edge/serverless environments. @upstash/ratelimit is excellent. Pricing is very competitive with pay-per-use. The incompatibility with standard Redis clients is the main limitation.",
+  "alternatives": ["supabase"],
+  "complementary": ["supabase", "neon", "clerk"],
+  "bestFor": "Serverless Redis for caching, rate limiting, and session storage in Next.js, Vercel Edge Functions, and Cloudflare Workers",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

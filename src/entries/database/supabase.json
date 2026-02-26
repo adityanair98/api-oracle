@@ -1,0 +1,94 @@
+{
+  "name": "Supabase",
+  "slug": "supabase",
+  "category": "database",
+  "subcategory": "postgres-platform",
+  "website": "https://supabase.com",
+  "description": "Supabase is an open-source Firebase alternative built on PostgreSQL. It bundles a hosted Postgres database, authentication, file storage, edge functions, and real-time subscriptions into a single platform — making it the fastest way to build a full-stack backend without managing infrastructure.",
+  "useCases": [
+    {
+      "task": "Build a full-stack app backend with database, auth, and storage",
+      "fit": "perfect"
+    },
+    {
+      "task": "Add a managed PostgreSQL database to a Next.js application",
+      "fit": "perfect"
+    },
+    {
+      "task": "Get real-time database updates pushed to the client",
+      "fit": "perfect"
+    },
+    {
+      "task": "Replace Firebase with an open-source, SQL-based alternative",
+      "fit": "perfect"
+    },
+    {
+      "task": "Run complex SQL analytics queries",
+      "fit": "good"
+    }
+  ],
+  "auth": {
+    "method": "api_key",
+    "setupSteps": [
+      "Sign up at supabase.com",
+      "Create a new project (choose a region and set a database password)",
+      "Go to Project Settings > API to find your Project URL and keys",
+      "Copy the Project URL and anon public key (safe for browser) and service_role key (server only)",
+      "Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    "envVarName": "SUPABASE_SERVICE_ROLE_KEY",
+    "codeSnippet": "import { createClient } from '@supabase/supabase-js';\nconst supabase = createClient(\n  process.env.NEXT_PUBLIC_SUPABASE_URL!,\n  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!\n);"
+  },
+  "pricing": {
+    "model": "freemium",
+    "freeTier": "2 free projects, 500MB database, 1GB storage, 50MB file uploads",
+    "startingPrice": "$25/month (Pro plan) per project",
+    "costPer": "Pro: $25/project/month includes 8GB DB, 100GB storage, 5GB bandwidth",
+    "pricingUrl": "https://supabase.com/pricing"
+  },
+  "rateLimits": {
+    "tier": "free tier",
+    "limit": "500MB database, projects paused after 1 week of inactivity",
+    "notes": "Free projects are paused after 7 days of inactivity (no requests). You must manually unpause them. Pro projects are never paused.",
+    "retryStrategy": "Use connection pooling (PgBouncer built-in) for serverless functions. Implement exponential backoff for transient errors."
+  },
+  "sdk": {
+    "primaryLanguage": "typescript",
+    "installCommand": "npm install --save-exact @supabase/supabase-js",
+    "importStatement": "import { createClient } from '@supabase/supabase-js';",
+    "otherLanguages": ["python", "dart", "swift", "kotlin", "rust"]
+  },
+  "codeExamples": [
+    {
+      "title": "Query data from a table",
+      "language": "typescript",
+      "code": "import { createClient } from '@supabase/supabase-js';\n\nconst supabase = createClient(\n  process.env.NEXT_PUBLIC_SUPABASE_URL!,\n  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!\n);\n\n// Fetch all posts with author name\nconst { data, error } = await supabase\n  .from('posts')\n  .select(`\n    id,\n    title,\n    body,\n    created_at,\n    author:users(name, avatar_url)\n  `)\n  .eq('published', true)\n  .order('created_at', { ascending: false })\n  .limit(10);\n\nif (error) throw new Error(error.message);\nconsole.log('Posts:', data);",
+      "notes": "Supabase uses Row Level Security (RLS) to control data access. Enable RLS on all tables and create policies, otherwise the anon key gives full table access."
+    },
+    {
+      "title": "Subscribe to real-time changes",
+      "language": "typescript",
+      "code": "import { createClient } from '@supabase/supabase-js';\n\nconst supabase = createClient(\n  process.env.NEXT_PUBLIC_SUPABASE_URL!,\n  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!\n);\n\n// Subscribe to INSERT events on 'messages' table\nconst channel = supabase\n  .channel('messages-changes')\n  .on(\n    'postgres_changes',\n    { event: 'INSERT', schema: 'public', table: 'messages' },\n    (payload) => {\n      console.log('New message:', payload.new);\n    }\n  )\n  .subscribe();\n\n// Unsubscribe when done\nreturn () => supabase.removeChannel(channel);",
+      "notes": "Realtime works via WebSockets. It requires enabling Realtime for the specific table in the Supabase dashboard (Table Editor > Realtime). Only works when RLS is enabled."
+    }
+  ],
+  "gotchas": [
+    "Row Level Security (RLS) is disabled by default. If you use the anon key (which is safe to expose in the browser), every user can read and write all rows in all tables unless you enable RLS and write policies. This is the #1 security mistake with Supabase.",
+    "Free tier projects are paused after 7 days of inactivity. The first request after pausing triggers an unpausing process that can take 20-30 seconds. This surprises teams demoing their apps.",
+    "Supabase uses connection pooling via PgBouncer, but serverless functions (Vercel, Netlify) can still exhaust connection limits under load. Use the session-mode connection string (not transaction-mode) for full PostgreSQL feature support.",
+    "The Supabase Auth user IDs are UUIDs stored in auth.users (a separate schema). You typically create a public.users table and use a database trigger to sync users on signup — don't forget this step."
+  ],
+  "reliability": {
+    "uptimeGuarantee": "99.9% uptime SLA on Pro plan and above",
+    "statusPageUrl": "https://status.supabase.com",
+    "notes": "Supabase infrastructure is hosted on AWS. Multiple regions available. Pro plan includes daily database backups (7-day retention)."
+  },
+  "qualityScore": 9,
+  "qualityJustification": "The best Firebase alternative for developers who prefer SQL. Excellent TypeScript SDK, generous free tier, and the combination of auth + storage + database + realtime in one platform reduces infrastructure complexity dramatically. RLS requirement is a feature, not a bug, but does add onboarding complexity.",
+  "alternatives": ["firebase", "neon", "planetscale"],
+  "complementary": ["resend", "stripe", "clerk"],
+  "bestFor": "Full-stack Next.js/React apps needing a managed Postgres database with auth, storage, and real-time built in — the open-source Firebase alternative",
+  "lastVerified": "2026-02-25",
+  "entryVersion": 1,
+  "addedBy": "claude-code-session-2"
+}

@@ -1,5 +1,5 @@
 {
-  "name": "api-oracle",
+  "name": "@adityanair98/api-oracle",
   "version": "0.5.0",
   "description": "MCP server that finds, evaluates, and recommends the best API for any programming task",
   "type": "module",

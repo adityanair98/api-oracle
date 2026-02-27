@@ -52,13 +52,13 @@ When a developer asks *"what should I use to send emails?"* — API Oracle retur
 ### Option A — npx (no install)
 
 ```bash
-npx api-oracle serve
+npx @adityanair98/api-oracle serve
 ```
 
 ### Option B — global install
 
 ```bash
-npm install -g api-oracle
+npm install -g @adityanair98/api-oracle
 api-oracle serve
 ```
 
@@ -70,8 +70,8 @@ Add to `~/.claude/claude_desktop_config.json` under `mcpServers`:
 {
   "mcpServers": {
     "api-oracle": {
-      "command": "api-oracle",
-      "args": ["serve"]
+      "command": "npx",
+      "args": ["@adityanair98/api-oracle", "serve"]
     }
   }
 }

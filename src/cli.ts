@@ -39,8 +39,8 @@ const HELP = `
   Example Claude Code configuration (~/.claude/claude_desktop_config.json):
     {
       "api-oracle": {
-        "command": "api-oracle",
-        "args": ["serve"]
+        "command": "npx",
+        "args": ["@adityanair98/api-oracle", "serve"]
       }
     }
 `.trimStart();

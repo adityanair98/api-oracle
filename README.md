@@ -105,7 +105,7 @@ Dashboard features:
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/adityanair/api-oracle.git
+git clone https://github.com/adityanair98/api-oracle.git
 cd api-oracle
 npm install
 ```

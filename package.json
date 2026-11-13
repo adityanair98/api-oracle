@@ -25,7 +25,7 @@
   },
   "license": "MIT",
   "scripts": {
-    "build": "tsc && cp -r src/dashboard/public dist/dashboard/public",
+    "build": "rm -rf dist && tsc && cp -r src/dashboard/public dist/dashboard/public",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",

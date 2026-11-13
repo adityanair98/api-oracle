@@ -145,13 +145,9 @@ npm run lint-entries -- --slug=<your-slug>  # content quality check
 
 Fix all errors and warnings before proceeding.
 
-### 6. Seed the database
+### 6. Restart the server
 
-```bash
-npm run seed
-```
-
-This loads your new entry (and any others) into SQLite. Run this before testing.
+The server loads every entry in `src/entries/` into an in-memory database at startup, so there is no seed step. Restart `api-oracle serve` (or `npm run dev`) to pick up your entry. Invalid entries are skipped with a warning on stderr.
 
 ### 7. Verify ranking
 

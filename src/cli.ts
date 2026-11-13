@@ -10,8 +10,7 @@
  */
 
 import { createRequire } from "module";
-import { initDb } from "./knowledge/db.js";
-import { config } from "./utils/config.js";
+import { bootstrapKnowledgeBase } from "./knowledge/loader.js";
 
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
@@ -32,7 +31,9 @@ const HELP = `
     --version    Show version
 
   Environment variables:
-    DB_PATH      Path to SQLite database (default: ./data/api-oracle.db)
+    DB_PATH      Optional SQLite file to use. By default the bundled entries
+                 are loaded into an in-memory database at startup and no
+                 file is written. If set, bundled entries are upserted into it.
     PORT         Dashboard port (default: 3737)
     LOG_LEVEL    Log level: debug | info | warn | error (default: info)
 
@@ -60,15 +61,15 @@ async function main(): Promise<void> {
   }
 
   if (command === "dashboard") {
-    initDb(config.dbPath);
+    bootstrapKnowledgeBase();
     const { startDashboard } = await import("./dashboard/server.js");
     startDashboard();
     return;
   }
 
   if (command === "serve" || command === "") {
-    // Default: MCP server on stdio
-    initDb(config.dbPath);
+    // Default: MCP server on stdio. Load the bundled entries before serving.
+    bootstrapKnowledgeBase();
     const { startServer } = await import("./server.js");
     await startServer();
     return;

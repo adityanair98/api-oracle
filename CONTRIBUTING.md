@@ -61,8 +61,7 @@ Address any `error` or `warning` level issues. `info` items are optional improve
 ### 5. Run the tests
 
 ```bash
-npm run seed    # Load your new entry into the DB
-npm test        # All 141+ tests must pass
+npm test        # All tests must pass (entries are loaded from src/entries/ automatically)
 ```
 
 If your entry is for a major category, consider adding a test in `tests/tools/find-api.test.ts` to verify it ranks correctly.

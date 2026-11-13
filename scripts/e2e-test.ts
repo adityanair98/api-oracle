@@ -1,17 +1,17 @@
 /**
  * End-to-end test script for the api-oracle knowledge base.
  *
- * Tests 8 real-world query scenarios against the live seeded database.
- * Requires npm run seed to have been run first.
+ * Tests 8 real-world query scenarios against the bundled entries.
+ * Loads the bundled entries into memory; no seeding required.
  *
  * Usage: npm run e2e
  */
 
-import { initDb } from "../src/knowledge/db.js";
+import { bootstrapKnowledgeBase } from "../src/knowledge/loader.js";
 import { findApis, getApiBySlug, getApisByCategory } from "../src/knowledge/search.js";
 
-// Initialize the live database (requires npm run seed to have been run)
-initDb();
+// Load the bundled entries into an in-memory database
+bootstrapKnowledgeBase({ dbPath: ":memory:" });
 
 interface TestScenario {
   name: string;

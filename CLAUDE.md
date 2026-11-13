@@ -6,7 +6,7 @@ API Oracle is an MCP server that gives Claude Code the ability to find, evaluate
 
 **Architecture:**
 ```
-Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSON entries
+Claude Code → MCP tools → search layer → SQLite DB (in-memory) ← loader (at startup) ← bundled JSON entries
 ```
 
 **Current state (v0.5.0):**
@@ -26,9 +26,9 @@ Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSO
 | `npm test` | Run all tests with Vitest (160 tests) |
 | `npm run test:watch` | Watch mode for tests |
 | `npm run validate` | Validate all JSON entries against schema + cross-references (CI-safe) |
-| `npm run seed` | Load all JSON entries into SQLite database |
-| `npm run e2e` | Run end-to-end query scenarios against the live database |
-| `npm run analyze` | Score representative queries and show breakdown (requires seeded DB) |
+| `npm run seed` | Optional: write the entries to a SQLite file (`./data/api-oracle.db` or `DB_PATH`). Not needed to run the server |
+| `npm run e2e` | Run end-to-end query scenarios (loads bundled entries in memory) |
+| `npm run analyze` | Score representative queries and show breakdown (loads bundled entries in memory) |
 | `npm run refresh-report` | Check entry staleness (--brief, --format=json, --level=stale) |
 | `npm run lint-entries` | Lint entry quality (--severity=warning, --slug=<slug>, --summary) |
 | `npm run dashboard` | Start web dashboard at http://localhost:3737 |
@@ -120,10 +120,8 @@ npm run validate
 ```
 Fix any errors before proceeding.
 
-### Step 4: Seed (re-run to add new entries)
-```bash
-npm run seed
-```
+### Step 4: Restart the server
+Entries are loaded from `src/entries/` at startup, so a restart picks up new or edited entries. No seeding step is needed.
 
 ### Step 5: Lint and test
 ```bash

@@ -3,7 +3,7 @@
  * and identifies where the ranking works well and where it fails.
  *
  * Usage: npm run analyze
- * Requires: npm run seed (needs live database)
+ * Loads the bundled entries into memory; no seeding required.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * PHASE 2 BASELINE FINDINGS (before improvements)
@@ -71,12 +71,12 @@
  *   indicating the scorer is not very confident for vague queries
  */
 
-import { initDb } from "../src/knowledge/db.js";
+import { bootstrapKnowledgeBase } from "../src/knowledge/loader.js";
 import { findApis } from "../src/knowledge/search.js";
 import type { RankedResult } from "../src/knowledge/search.js";
 
-// Initialize live database
-initDb();
+// Load the bundled entries into an in-memory database
+bootstrapKnowledgeBase({ dbPath: ":memory:" });
 
 // ─── Query definitions ────────────────────────────────────────────────────────
 

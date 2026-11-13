@@ -151,17 +151,16 @@ The server loads every entry in `src/entries/` into an in-memory database at sta
 
 ### 7. Verify ranking
 
-Add a test to `tests/knowledge/scorer.test.ts`:
+Add a test to `tests/tools/find-api.test.ts`. Use `findApis` there, not `rankEntries`: `findApis` applies category detection and the relevance gate, so it's what `find_best_api` actually returns. The file's `beforeEach` already loads every entry into an in-memory DB.
 
 ```typescript
-it("'use case description' ranks my-api in top results", () => {
-  const results = rankEntries(allEntries, "use case description", undefined, 5);
-  const myApi = results.find((r) => r.entry.slug === "my-api");
-  expect(myApi).toBeDefined();
+it("'use case description' recommends my-api", () => {
+  const slugs = findApis("use case description", undefined, 3).map((r) => r.entry.slug);
+  expect(slugs).toContain("my-api");
 });
 ```
 
-Run tests: `npm test`
+Run tests with `npm test`, and check overall accuracy with `npm run eval`.
 
 ## Validation Checklist
 

@@ -232,11 +232,13 @@ describe("Scorer", () => {
   });
 
   it("'stream video on demand' ranks mux highly", () => {
+    // Rank ALL entries: with relevance gating, unrelated APIs (resend, clerk)
+    // now score near zero and no longer appear in an arbitrary top 35.
     const results = rankEntries(
       allEntries,
       "stream video on demand for a course platform",
       undefined,
-      35
+      allEntries.length
     );
     const muxResult = results.find((r) => r.entry.slug === "mux");
     expect(muxResult).toBeDefined();

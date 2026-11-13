@@ -67,10 +67,11 @@ scenario("2. 'Accept payments in India with UPI' → razorpay over stripe", () =
   );
   const razorpayIdx = slugs.indexOf("razorpay");
   assert(razorpayIdx >= 0, `Razorpay is in top 5 for India payment query (got: ${slugs.join(", ")})`);
-  // Both Stripe and Razorpay should surface for Indian payment queries
+  // Razorpay should win. (Stripe's own entry marks Indian payments as a
+  // partial/poor fit, so the relevance gate may legitimately omit it.)
   assert(
-    slugs.includes("razorpay") && slugs.includes("stripe"),
-    "Both razorpay and stripe appear in results"
+    slugs[0] === "razorpay",
+    `Razorpay ranks first for India/UPI (got: ${slugs.join(", ")})`
   );
 });
 

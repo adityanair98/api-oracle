@@ -263,6 +263,28 @@ export function expandQuery(query: string): string {
   return `${query} ${[...addedTerms].join(" ")}`;
 }
 
+/**
+ * Which synonym groups a query triggers, and which term in the query
+ * triggered each one (same matching rules as expandQuery).
+ * Used by the relevance model to attach synonyms to the query word they expand.
+ */
+export function matchSynonymGroups(
+  query: string
+): Array<{ term: string; group: readonly string[] }> {
+  if (!query) return [];
+  const lowerQuery = query.toLowerCase();
+  const matches: Array<{ term: string; group: readonly string[] }> = [];
+  const seen = new Set<readonly string[]>();
+  for (const [term, group] of SORTED_TERM_ENTRIES) {
+    if (seen.has(group)) continue;
+    if (buildTermRegex(term).test(lowerQuery)) {
+      seen.add(group);
+      matches.push({ term, group });
+    }
+  }
+  return matches;
+}
+
 // ─── Phrase Detection ─────────────────────────────────────────────────────────
 
 export interface PhraseModifiers {
@@ -352,8 +374,8 @@ const CATEGORY_DETECTORS: CategoryPattern[] = [
   {
     category: "email",
     patterns: [
-      /\bemail\b/i, /\bmail\b/i, /\bsmtp\b/i, /\bnewsletter\b/i,
-      /\binbox\b/i, /\btransactional\b/i, /\bsend.*mail\b/i,
+      /\bemails?\b/i, /\bmails?\b/i, /\bsmtp\b/i, /\bnewsletters?\b/i,
+      /\binbox\b/i, /\btransactional\b/i, /\bsend.*mails?\b/i,
     ],
     weight: 0.4,
   },

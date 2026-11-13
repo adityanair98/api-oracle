@@ -1,24 +1,43 @@
 /**
  * Scoring/ranking engine — ranks API entries by relevance to a task description.
- * Uses weighted multi-factor scoring across 6 dimensions.
  *
- * Exports: SCORING_WEIGHTS, DEFAULT_WEIGHTS, ScoreWeights, scoreEntry, rankEntries,
- *          tokenize, scoreUseCaseFit, scoreDevExperience
+ * Relevance gates the score. Query-independent factors (quality, developer
+ * experience, pricing, recency) can only ADJUST an entry that is already
+ * relevant — they can never make an unrelated API rank:
+ *
+ *   relevance = min(coverage + keyword bonus, 1) × categoryFit   ∈ [0, 1]
+ *   prior     = weighted mean of quality, DX, pricing, recency    ∈ [0, 1]
+ *   score     = relevance × (1 − PRIOR_INFLUENCE + PRIOR_INFLUENCE × prior)
+ *               + keywordRelevance × KEYWORD_RANK_WEIGHT × categoryFit
+ *
+ * With PRIOR_INFLUENCE = 0.25 the prior scales a score between 0.75× and 1.0×
+ * of its relevance, so a high-quality but irrelevant API (relevance≈0) scores
+ * ≈0. The keyword term (the user named the API or its subcategory) sits
+ * outside the clamp so a named API wins ties against entries that merely
+ * mention it ("firebase" → Firebase, not "the open-source Firebase
+ * alternative"). search.ts additionally drops candidates below a relevance
+ * threshold and those in a clearly incompatible category.
+ *
+ * Exports: SCORING_WEIGHTS, DEFAULT_WEIGHTS, ScoreWeights, PRIOR_INFLUENCE, KEYWORD_RANK_WEIGHT,
+ *          scoreEntry, rankEntries, tokenize, scoreDevExperience, categoryFit,
+ *          computeConfidence, confidenceLabel, ScoringContext
  */
 
 import type { ApiEntry } from "./schema.js";
 import type { SearchConstraints, RankedResult } from "./search.js";
+import { buildRelevanceModel, entryRelevance, type RelevanceModel } from "./relevance.js";
 
 // ─── Configurable Weights ─────────────────────────────────────────────────────
-// Tune these to adjust ranking priorities. Must sum to 1.0.
+// Must sum to 1.0. useCaseFit + keywordRelevance define RELEVANCE; the other
+// four define the PRIOR (their relative weights within the prior).
 
 export interface ScoreWeights {
-  useCaseFit: number;         // Match against use cases, bestFor, description
-  qualityScore: number;       // Curated quality score (1-10)
-  developerExperience: number;// TypeScript SDK, code examples, setup clarity
-  pricingFit: number;         // Free tier, pricing model alignment
-  keywordRelevance: number;   // Direct keyword match against name/slug/subcategory
-  recencyBonus: number;       // lastVerified freshness bonus
+  useCaseFit: number;          // IDF-weighted query coverage (use cases, bestFor, …)
+  qualityScore: number;        // Curated quality score (1-10)
+  developerExperience: number; // TypeScript SDK, code examples, setup clarity
+  pricingFit: number;          // Free tier, pricing model alignment
+  keywordRelevance: number;    // User named the API / its subcategory directly
+  recencyBonus: number;        // lastVerified freshness
 }
 
 /** Default weights — must sum to exactly 1.0 */
@@ -34,7 +53,16 @@ export const SCORING_WEIGHTS: ScoreWeights = {
 /** Alias for backwards compatibility */
 export const DEFAULT_WEIGHTS: ScoreWeights = SCORING_WEIGHTS;
 
-// ─── Tokenizer ────────────────────────────────────────────────────────────────
+/** How much the query-independent prior can move a relevant entry's score */
+export const PRIOR_INFLUENCE = 0.25;
+
+/**
+ * Ranking weight of keywordRelevance outside the relevance clamp
+ * (= SCORING_WEIGHTS.keywordRelevance by default; see scoreEntry).
+ */
+export const KEYWORD_RANK_WEIGHT = SCORING_WEIGHTS.keywordRelevance;
+
+// ─── Tokenizer (used by the TF-IDF index) ─────────────────────────────────────
 
 // Stop words that add noise without semantic value in the scoring context
 const STOP_WORDS = new Set([
@@ -59,7 +87,7 @@ export function tokenize(text: string): Set<string> {
   return new Set(tokens);
 }
 
-/** Compute Jaccard-like overlap score between two token sets */
+/** Overlap score between two token sets, normalised by the larger set */
 function tokenOverlap(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 || b.size === 0) return 0;
   let overlap = 0;
@@ -69,87 +97,58 @@ function tokenOverlap(a: Set<string>, b: Set<string>): number {
   return overlap / Math.max(a.size, b.size);
 }
 
-// ─── Category Signals ─────────────────────────────────────────────────────────
-
-const CATEGORY_SIGNALS: Record<string, string[]> = {
-  email: ["email", "mail", "smtp", "send", "transactional", "newsletter", "inbox", "bounce", "mailer"],
-  payments: ["payment", "pay", "checkout", "charge", "billing", "invoice", "subscription", "card", "upi", "merchant", "transaction"],
-  ai: ["ai", "ml", "llm", "gpt", "claude", "openai", "anthropic", "model", "completion", "embedding", "chatbot", "generate", "inference", "generative"],
-  storage: ["upload", "file", "image", "video", "media", "storage", "cdn", "asset", "photo", "bucket", "picture", "avatar"],
-  search: ["search", "query", "index", "algolia", "fulltext", "autocomplete", "facet", "filter", "typeahead"],
-  auth: ["auth", "authentication", "login", "signin", "signup", "oauth", "sso", "identity", "session", "token", "jwt", "credential"],
-  messaging: ["sms", "text", "message", "messaging", "phone", "call", "voice", "telephony", "twilio", "vonage"],
-  analytics: ["analytics", "tracking", "metrics", "event", "crash", "exception", "error", "monitoring", "observability", "posthog", "sentry"],
-  database: ["database", "db", "sql", "nosql", "postgres", "mysql", "query", "datastore", "backend", "persist"],
-  media: ["audio", "video", "stream", "transcribe", "transcode", "speech", "mux", "deepgram"],
-  notifications: ["notification", "push", "alert", "bell", "notify", "apns", "fcm"],
-  maps: ["map", "maps", "geo", "location", "address", "geocode", "navigation", "direction", "coordinate"],
-  communication: ["chat", "conversation", "channel", "room", "thread", "realtime", "websocket", "pusher", "ably"],
-};
-
-function scoreCategoryMatch(queryTokens: Set<string>, category: string): number {
-  const signals = CATEGORY_SIGNALS[category] ?? [];
-  if (signals.length === 0) return 0;
-  const signalSet = new Set(signals);
-  let matched = 0;
-  for (const token of queryTokens) {
-    if (signalSet.has(token)) matched++;
-  }
-  return Math.min(matched / 3, 1.0);
-}
-
-// ─── 1. Use Case Fit (multi-field) ────────────────────────────────────────────
-
-const FIT_WEIGHTS = {
-  perfect: 1.0,
-  good: 0.7,
-  partial: 0.4,
-} as const;
+// ─── Category fit ─────────────────────────────────────────────────────────────
 
 /**
- * Score against multiple fields with weighted relevance:
- * - Use case tasks (40%) — with fit multiplier, best match wins
- * - bestFor (25%) — concise purpose statement
- * - Description (20%) — first 200 chars (signal-dense)
- * - Category signals (15%) — broad category alignment
+ * Categories that plausibly serve the same task. A query detected as "storage"
+ * can be answered by infrastructure (S3/R2) or media (imgix) entries, but not
+ * by payments.
  */
-export function scoreUseCaseFit(entry: ApiEntry, queryTokens: Set<string>): number {
-  if (queryTokens.size === 0) return 0;
+const CATEGORY_AFFINITY: Record<string, string[]> = {
+  email: ["notifications"],
+  payments: ["commerce"],
+  commerce: ["payments", "cms"],
+  ai: ["media"],
+  media: ["ai", "storage", "infrastructure"],
+  storage: ["infrastructure", "media", "database"],
+  infrastructure: ["storage", "devops", "media"],
+  devops: ["infrastructure", "database"],
+  database: ["storage", "auth", "infrastructure", "devops"],
+  auth: ["database", "security"],
+  search: ["database"],
+  messaging: ["communication", "notifications"],
+  communication: ["messaging", "notifications"],
+  notifications: ["messaging", "communication", "email"],
+  analytics: ["testing"],
+  testing: ["analytics"],
+  security: ["auth", "database", "infrastructure"],
+  workflow: ["devops", "integration", "infrastructure"],
+  integration: ["workflow", "forms"],
+  forms: ["integration"],
+  cms: ["commerce"],
+  scheduling: [],
+  maps: [],
+};
 
-  // Use case task matching
-  let bestUseCaseScore = 0;
-  for (const useCase of entry.useCases) {
-    const useCaseTokens = tokenize(useCase.task);
-    const overlap = tokenOverlap(queryTokens, useCaseTokens);
-    const score = overlap * FIT_WEIGHTS[useCase.fit];
-    if (score > bestUseCaseScore) bestUseCaseScore = score;
-  }
+/** Minimum detection confidence before category is used at all */
+const CATEGORY_MIN_CONFIDENCE = 0.4;
 
-  // bestFor
-  const bestForScore = tokenOverlap(queryTokens, tokenize(entry.bestFor));
-
-  // Description (first 200 chars)
-  const descScore = tokenOverlap(queryTokens, tokenize(entry.description.slice(0, 200)));
-
-  // Category match
-  const categoryScore = scoreCategoryMatch(queryTokens, entry.category);
-
-  return Math.min(
-    bestUseCaseScore * 0.40 +
-    bestForScore * 0.25 +
-    descScore * 0.20 +
-    categoryScore * 0.15,
-    1.0
-  );
+/**
+ * Relevance multiplier from category alignment with the detected task category:
+ * same 1.0, related 0.9, unrelated 0.7. No detection → 1.0 (neutral).
+ */
+export function categoryFit(
+  entryCategory: string,
+  detectedCategory: string | null,
+  detectedConfidence: number
+): number {
+  if (!detectedCategory || detectedConfidence < CATEGORY_MIN_CONFIDENCE) return 1.0;
+  if (entryCategory === detectedCategory) return 1.0;
+  if (CATEGORY_AFFINITY[detectedCategory]?.includes(entryCategory)) return 0.9;
+  return 0.7;
 }
 
-// ─── 2. Quality Score ─────────────────────────────────────────────────────────
-
-function scoreQuality(entry: ApiEntry): number {
-  return (entry.qualityScore - 1) / 9;
-}
-
-// ─── 3. Developer Experience (sub-scored) ─────────────────────────────────────
+// ─── Developer Experience (sub-scored) ────────────────────────────────────────
 
 /**
  * DX sub-scoring with measurable, explicit factors:
@@ -169,36 +168,30 @@ export function scoreDevExperience(
   let score = 0;
   let maxScore = 8;
 
-  // TypeScript primary SDK (+3)
   if (entry.sdk.primaryLanguage.toLowerCase() === "typescript") {
     score += 3;
   } else if (entry.sdk.otherLanguages.some((l) => l.toLowerCase() === "typescript")) {
     score += 1.5;
   }
 
-  // 2+ code examples (+2)
   if (entry.codeExamples.length >= 2) {
     score += 2;
   } else if (entry.codeExamples.length === 1) {
     score += 1;
   }
 
-  // envVarName defined — clear auth setup (+1)
   if (entry.auth.envVarName && entry.auth.envVarName.length > 0) {
     score += 1;
   }
 
-  // Single npm install command (+1)
   if (entry.sdk.installCommand.includes("npm install")) {
     score += 1;
   }
 
-  // Multiple language SDKs (3+) (+1)
   if (entry.sdk.otherLanguages.length >= 3) {
     score += 1;
   }
 
-  // Required language match (only when constraint specified; +2)
   if (constraints?.requiredLanguage) {
     maxScore += 2;
     const required = constraints.requiredLanguage.toLowerCase();
@@ -212,14 +205,17 @@ export function scoreDevExperience(
   return score / maxScore;
 }
 
-// ─── 4. Pricing Fit ───────────────────────────────────────────────────────────
+// ─── Quality / Pricing / Recency (prior components) ───────────────────────────
+
+function scoreQuality(entry: ApiEntry): number {
+  return (entry.qualityScore - 1) / 9;
+}
 
 function scorePricingFit(
   entry: ApiEntry,
   constraints?: SearchConstraints
 ): number {
   if (constraints?.preferFree) {
-    // preferFree: generous free tier or open source scores highest
     if (entry.pricing.model === "free" || entry.pricing.model === "open_source") {
       return 1.0;
     }
@@ -245,71 +241,39 @@ function scorePricingFit(
   return 0.50; // Paid — neutral
 }
 
-// ─── 5. Keyword Relevance ─────────────────────────────────────────────────────
-
-/**
- * Direct keyword relevance: checks if query tokens appear in name/slug/subcategory.
- * This rewards exact API name matches ("algolia" for search queries, "stripe" for payments).
- */
-function scoreKeywordRelevance(entry: ApiEntry, queryTokens: Set<string>): number {
-  const nameTokens = tokenize(entry.name);
-  const slugTokens = tokenize(entry.slug.replace(/-/g, " "));
-  const subCatTokens = tokenize(entry.subcategory.replace(/-/g, " "));
-
-  // Boost when API name or slug appears in query (user named the tool directly)
-  const nameMatch = tokenOverlap(queryTokens, nameTokens);
-  const slugMatch = tokenOverlap(queryTokens, slugTokens);
-  const subCatMatch = tokenOverlap(queryTokens, subCatTokens);
-
-  // Name match is strongest signal (user asked for "stripe" or "algolia" by name)
-  return Math.min(nameMatch * 0.5 + slugMatch * 0.3 + subCatMatch * 0.2, 1.0);
-}
-
-// ─── 6. Recency Bonus ─────────────────────────────────────────────────────────
-
-const NOW_MS = Date.now();
 const MS_PER_DAY = 86_400_000;
 
 /**
- * Recency bonus: entries verified within 30 days score 1.0.
- * Scales linearly to 0 at 365 days. Older entries score 0.
+ * Recency: verified within 30 days → 1.0, linearly to 0 at 365 days.
+ * Computed at call time (not module load) so long-running servers stay correct.
  */
-function scoreRecency(entry: ApiEntry): number {
-  try {
-    const verifiedMs = new Date(entry.lastVerified).getTime();
-    const daysOld = (NOW_MS - verifiedMs) / MS_PER_DAY;
-    if (daysOld <= 30) return 1.0;
-    if (daysOld <= 365) return 1.0 - (daysOld - 30) / 335;
-    return 0;
-  } catch {
-    return 0;
-  }
+function scoreRecency(entry: ApiEntry, nowMs: number = Date.now()): number {
+  const verifiedMs = new Date(entry.lastVerified).getTime();
+  if (Number.isNaN(verifiedMs)) return 0;
+  const daysOld = (nowMs - verifiedMs) / MS_PER_DAY;
+  if (daysOld <= 30) return 1.0;
+  if (daysOld <= 365) return 1.0 - (daysOld - 30) / 335;
+  return 0;
 }
 
-// ─── Category Boost ───────────────────────────────────────────────────────────
+// ─── Keyword Relevance ────────────────────────────────────────────────────────
 
-function applyCategoryBoost(
-  score: number,
-  entry: ApiEntry,
-  detectedCategory: string | null,
-  detectedConfidence: number
-): number {
-  if (!detectedCategory || detectedConfidence < 0.4) return score;
-  if (entry.category === detectedCategory) {
-    const boost = detectedConfidence * 0.12; // Up to 12% boost
-    return Math.min(score * (1 + boost), 1.0);
-  }
-  return score;
+/**
+ * Direct keyword relevance on the ORIGINAL query (not the synonym-expanded
+ * one): rewards the user naming the API ("algolia", "stripe") or its subcategory.
+ */
+function scoreKeywordRelevance(entry: ApiEntry, queryTokens: Set<string>): number {
+  const nameMatch = tokenOverlap(queryTokens, tokenize(entry.name));
+  const slugMatch = tokenOverlap(queryTokens, tokenize(entry.slug.replace(/-/g, " ")));
+  const subCatMatch = tokenOverlap(queryTokens, tokenize(entry.subcategory.replace(/-/g, " ")));
+  return Math.min(nameMatch * 0.5 + slugMatch * 0.3 + subCatMatch * 0.2, 1.0);
 }
 
 // ─── Confidence Score ─────────────────────────────────────────────────────────
 
 /**
- * Compute a confidence value (0-1) for how certain we are about the top result.
- *
- * High confidence (>0.8): strong category match + high useCaseFit score
- * Medium confidence (0.5-0.8): partial signals
- * Low confidence (<0.5): weak query, no clear category
+ * Confidence (0-1) for the top result: how relevant it is, how clear the
+ * category is, and how far it is ahead of the runner-up.
  */
 export function computeConfidence(
   topResult: RankedResult,
@@ -317,23 +281,17 @@ export function computeConfidence(
   detectedConfidence: number,
   allResults: RankedResult[]
 ): number {
-  const useCaseFit = topResult.scoreBreakdown["useCaseFit"] ?? 0;
+  const relevance = topResult.scoreBreakdown["relevance"] ?? 0;
   const totalScore = topResult.score;
 
-  // Factor 1: useCaseFit raw score quality
-  const fitSignal = Math.min(useCaseFit / 0.5, 1.0); // 0.5+ useCaseFit → full signal
-
-  // Factor 2: category detection confidence
+  const fitSignal = Math.min(relevance / 0.7, 1.0);
   const catSignal = detectedCategory ? detectedConfidence : 0;
-
-  // Factor 3: score separation (top result vs runner-up)
   const separation =
     allResults.length >= 2
-      ? Math.min((totalScore - allResults[1]!.score) * 5, 1.0)
+      ? Math.min(((totalScore - allResults[1]!.score) / Math.max(totalScore, 0.01)) * 4, 1.0)
       : 0.5;
 
-  // Weighted combination
-  const raw = fitSignal * 0.40 + catSignal * 0.35 + separation * 0.25;
+  const raw = fitSignal * 0.5 + catSignal * 0.25 + separation * 0.25;
   return Math.round(Math.min(raw, 1.0) * 100) / 100;
 }
 
@@ -347,12 +305,19 @@ export function confidenceLabel(confidence: number): "high" | "medium" | "low" {
 // ─── Scoring Context (passed from search.ts) ──────────────────────────────────
 
 export interface ScoringContext {
-  expandedQuery: string;
+  /** Kept for compatibility; relevance uses the original query + synonym groups */
+  expandedQuery?: string;
   detectedCategory: string | null;
   detectedConfidence: number;
+  /** Prebuilt relevance model over the full candidate set (IDF needs the corpus) */
+  relevanceModel?: RelevanceModel;
 }
 
 // ─── Main Scoring Function ────────────────────────────────────────────────────
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 export function scoreEntry(
   entry: ApiEntry,
@@ -361,46 +326,61 @@ export function scoreEntry(
   weights: ScoreWeights = SCORING_WEIGHTS,
   context?: ScoringContext
 ): RankedResult {
-  const effectiveQuery = context?.expandedQuery ?? query;
-  const queryTokens = tokenize(effectiveQuery);
+  const model = context?.relevanceModel ?? buildRelevanceModel(query, [entry]);
 
-  const useCaseFitRaw = scoreUseCaseFit(entry, queryTokens);
-  const qualityRaw = scoreQuality(entry);
-  const devExperienceRaw = scoreDevExperience(entry, constraints);
-  const pricingFitRaw = scorePricingFit(entry, constraints);
-  const keywordRelevanceRaw = scoreKeywordRelevance(entry, queryTokens);
-  const recencyRaw = scoreRecency(entry);
-
-  const baseScore =
-    useCaseFitRaw * weights.useCaseFit +
-    qualityRaw * weights.qualityScore +
-    devExperienceRaw * weights.developerExperience +
-    pricingFitRaw * weights.pricingFit +
-    keywordRelevanceRaw * weights.keywordRelevance +
-    recencyRaw * weights.recencyBonus;
-
-  const totalScore = applyCategoryBoost(
-    baseScore,
-    entry,
+  // Relevance (query-dependent)
+  const coverage = entryRelevance(model, entry.slug);
+  const keyword = scoreKeywordRelevance(entry, tokenize(query));
+  const keywordBonus = weights.useCaseFit > 0 ? weights.keywordRelevance / weights.useCaseFit : 0;
+  const catFit = categoryFit(
+    entry.category,
     context?.detectedCategory ?? null,
     context?.detectedConfidence ?? 0
   );
+  const relevance = Math.min(coverage + keyword * keywordBonus, 1.0) * catFit;
+
+  // Prior (query-independent) — can only adjust a relevant entry
+  const quality = scoreQuality(entry);
+  const dx = scoreDevExperience(entry, constraints);
+  const pricing = scorePricingFit(entry, constraints);
+  const recency = scoreRecency(entry);
+  const priorWeight =
+    weights.qualityScore + weights.developerExperience + weights.pricingFit + weights.recencyBonus;
+  const prior =
+    priorWeight > 0
+      ? (quality * weights.qualityScore +
+          dx * weights.developerExperience +
+          pricing * weights.pricingFit +
+          recency * weights.recencyBonus) /
+        priorWeight
+      : 0;
+
+  const totalScore =
+    relevance * (1 - PRIOR_INFLUENCE + PRIOR_INFLUENCE * prior) +
+    keyword * weights.keywordRelevance * catFit;
 
   const scoreBreakdown: Record<string, number> = {
-    useCaseFit: Math.round(useCaseFitRaw * 100) / 100,
-    qualityScore: Math.round(qualityRaw * 100) / 100,
-    developerExperience: Math.round(devExperienceRaw * 100) / 100,
-    pricingFit: Math.round(pricingFitRaw * 100) / 100,
-    keywordRelevance: Math.round(keywordRelevanceRaw * 100) / 100,
-    recencyBonus: Math.round(recencyRaw * 100) / 100,
-    total: Math.round(totalScore * 100) / 100,
+    useCaseFit: round2(coverage),
+    keywordRelevance: round2(keyword),
+    categoryFit: round2(catFit),
+    relevance: round2(relevance),
+    qualityScore: round2(quality),
+    developerExperience: round2(dx),
+    pricingFit: round2(pricing),
+    recencyBonus: round2(recency),
+    prior: round2(prior),
+    total: round2(totalScore),
   };
 
-  return { entry, score: totalScore, scoreBreakdown };
+  return { entry, score: totalScore, relevance, scoreBreakdown };
 }
 
 // ─── Ranking Function ─────────────────────────────────────────────────────────
 
+/**
+ * Score and sort entries (no filtering — see findApis for relevance gating).
+ * The relevance model is built over `entries`, so IDF reflects the corpus.
+ */
 export function rankEntries(
   entries: ApiEntry[],
   query: string,
@@ -411,8 +391,15 @@ export function rankEntries(
 ): RankedResult[] {
   if (entries.length === 0) return [];
 
+  const fullContext: ScoringContext = {
+    detectedCategory: context?.detectedCategory ?? null,
+    detectedConfidence: context?.detectedConfidence ?? 0,
+    expandedQuery: context?.expandedQuery,
+    relevanceModel: context?.relevanceModel ?? buildRelevanceModel(query, entries),
+  };
+
   const scored = entries.map((entry) =>
-    scoreEntry(entry, query, constraints, weights, context)
+    scoreEntry(entry, query, constraints, weights, fullContext)
   );
 
   scored.sort((a, b) => b.score - a.score);

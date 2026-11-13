@@ -37,7 +37,7 @@ const HELP = `
     DB_PATH      Optional SQLite file to use. By default the bundled entries
                  are loaded into an in-memory database at startup and no
                  file is written. If set, bundled entries are upserted into it.
-    PORT         Dashboard port (default: 3737)
+    PORT         Dashboard port (default: 3737; 0 picks any free port)
     LOG_LEVEL    Log level: debug | info | warn | error (default: info)
 
   Add to Claude Code:

@@ -14,7 +14,7 @@ Claude Code → MCP tools → search layer → SQLite DB (in-memory) ← loader 
 - 4 MCP tools: find_best_api, compare_apis, get_api_setup_guide, check_api_freshness
 - Web dashboard at http://localhost:3737 (`npm run dashboard`)
 - CLI entry point: `api-oracle serve|dashboard`
-- 226 tests passing; retrieval eval via `npm run eval` (dev + held-out sets)
+- 228 tests passing; retrieval eval via `npm run eval` (dev + held-out sets)
 - Auto-updater system with staleness tracking and quality linter
 
 ## Available npm Scripts
@@ -23,7 +23,7 @@ Claude Code → MCP tools → search layer → SQLite DB (in-memory) ← loader 
 |--------|---------|
 | `npm run build` | Compile TypeScript to `dist/` + copy `src/dashboard/public` to `dist/` |
 | `npm run dev` | Run MCP server directly with tsx (no compile needed) |
-| `npm test` | Run all tests with Vitest (226 tests) |
+| `npm test` | Run all tests with Vitest (228 tests) |
 | `npm run test:watch` | Watch mode for tests |
 | `npm run validate` | Validate all JSON entries against schema + cross-references (CI-safe) |
 | `npm run seed` | Optional: write the entries to a SQLite file (`./data/api-oracle.db` or `DB_PATH`). Not needed to run the server |

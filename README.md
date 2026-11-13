@@ -154,7 +154,7 @@ node dist/cli.js dashboard
 
 ```bash
 npm run dev            # Run MCP server with tsx (no build needed)
-npm test               # Run all tests (226 tests)
+npm test               # Run all tests (228 tests)
 npm run validate       # Validate all JSON entries + cross-references
 npm run lint-entries   # Content quality linter (0 errors, 15 warnings)
 npm run e2e            # End-to-end query scenarios (43 assertions)
@@ -169,7 +169,7 @@ npm run dashboard      # Start dashboard with tsx
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DB_PATH` | _(unset)_: in-memory | Optional SQLite file. If it's unset, the bundled entries are loaded into memory at startup. If it's set, they're upserted into that file and other rows are kept. |
-| `PORT` | `3737` | Dashboard server port |
+| `PORT` | `3737` | Dashboard server port (`0` picks any free port; the banner shows the one in use) |
 | `LOG_LEVEL` | `info` | Log level: debug \| info \| warn \| error |
 
 ---

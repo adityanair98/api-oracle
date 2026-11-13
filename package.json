@@ -33,6 +33,7 @@
     "seed": "tsx scripts/seed-db.ts",
     "e2e": "tsx scripts/e2e-test.ts",
     "analyze": "tsx scripts/scoring-analysis.ts",
+    "eval": "tsx scripts/eval.ts",
     "refresh-report": "tsx scripts/refresh-report.ts",
     "lint-entries": "tsx scripts/lint-entries.ts",
     "dashboard": "tsx src/dashboard/server.ts",

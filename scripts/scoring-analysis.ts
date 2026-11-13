@@ -5,6 +5,12 @@
  * Usage: npm run analyze
  * Loads the bundled entries into memory; no seeding required.
  *
+ * NOTE (v0.6.0): the "20/20" result recorded below was measured on the same
+ * 20 queries the v0.5.0 weights were tuned on, so it is not a trustworthy
+ * accuracy figure. For that, use `npm run eval`, which reports a held-out set
+ * (tests/eval/holdout.json) separately — see tests/eval/results/. The notes
+ * below are kept as development history and describe the v0.5.0 scorer.
+ *
  * ─────────────────────────────────────────────────────────────────────────────
  * PHASE 2 BASELINE FINDINGS (before improvements)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -43,7 +49,9 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * PHASE 6 RESULTS (after Phases 3–5 improvements)
  * ─────────────────────────────────────────────────────────────────────────────
- * Sensible: 20/20 queries (up from 17/20)
+ * Sensible: 20/20 queries (up from 17/20) — on the tuning queries themselves
+ * (in-sample). Held-out accuracy of that scorer was 38.1% top-1 / 71.4% top-3;
+ * see tests/eval/results/baseline.md.
  *
  * IMPROVEMENTS:
  * 1. SYNONYM EXPANSION (Phase 3) — expandQuery() adds related terms before

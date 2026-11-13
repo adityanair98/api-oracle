@@ -10,6 +10,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { findApisDetailed, type SearchConstraints } from "../knowledge/search.js";
 import type { ApiEntry } from "../knowledge/schema.js";
+import { checkStaleness } from "../updater/staleness.js";
 import { createLogger } from "../utils/logger.js";
 
 const logger = createLogger("tool:find-api");
@@ -53,6 +54,26 @@ function pricingSummary(entry: ApiEntry): string {
 }
 
 /**
+ * lastVerified plus how stale that is. Dates are never changed automatically:
+ * an entry is only "fresh" if a human re-verified it within 90 days.
+ */
+function freshness(entry: ApiEntry): {
+  lastVerified: string;
+  daysSinceVerified: number;
+  level: "fresh" | "aging" | "stale" | "critical";
+} {
+  const s = checkStaleness(entry);
+  return { lastVerified: s.lastVerified, daysSinceVerified: s.daysSinceVerified, level: s.level };
+}
+
+function freshnessNote(f: { lastVerified: string; daysSinceVerified: number }): string {
+  return (
+    `This entry was last verified on ${f.lastVerified} (${f.daysSinceVerified} days ago). ` +
+    "Pricing, rate limits and SDK details may have changed since — confirm them on the provider's pricing and docs pages."
+  );
+}
+
+/**
  * Build the find_best_api response body.
  *
  * Shape (backward compatible with v0.5.0, plus `candidates`):
@@ -61,6 +82,9 @@ function pricingSummary(entry: ApiEntry): string {
  *   candidates      — up to 5 relevant entries with key facts and their
  *                     relevance, so the calling model can make the final call
  *   totalEvaluated  — number of knowledge-base entries scored for this query
+ * Every entry carries lastVerified; the recommendation also carries
+ * freshness {lastVerified, daysSinceVerified, level} and a freshnessNote
+ * when it is not fresh.
  */
 export function buildFindBestApiResponse(
   task: string,
@@ -82,6 +106,7 @@ export function buildFindBestApiResponse(
   const [top, ...alternatives] = results;
   const entry = top!.entry;
   const bestExample = entry.codeExamples[0];
+  const topFreshness = freshness(entry);
 
   return {
     recommendation: {
@@ -104,6 +129,9 @@ export function buildFindBestApiResponse(
       pricing: pricingSummary(entry),
       website: entry.website,
       rateLimitNote: `${entry.rateLimits.tier}: ${entry.rateLimits.limit}`,
+      lastVerified: entry.lastVerified,
+      freshness: topFreshness,
+      ...(topFreshness.level === "fresh" ? {} : { freshnessNote: freshnessNote(topFreshness) }),
     },
     alternatives: alternatives.map((r) => ({
       name: r.entry.name,
@@ -111,6 +139,7 @@ export function buildFindBestApiResponse(
       why: r.entry.bestFor,
       qualityScore: r.entry.qualityScore,
       score: Math.round(r.score * 100) / 100,
+      lastVerified: r.entry.lastVerified,
     })),
     candidates: outcome.relevant.slice(0, MAX_CANDIDATES).map((r) => ({
       slug: r.entry.slug,
@@ -126,6 +155,8 @@ export function buildFindBestApiResponse(
       authMethod: r.entry.auth.method,
       topGotcha: r.entry.gotchas[0] ?? null,
       website: r.entry.website,
+      lastVerified: r.entry.lastVerified,
+      freshnessLevel: freshness(r.entry).level,
     })),
     totalEvaluated: outcome.evaluated,
   };

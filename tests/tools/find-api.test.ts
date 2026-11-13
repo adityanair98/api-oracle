@@ -3,7 +3,7 @@
  * Integration tests for the find_best_api MCP tool handler.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import { readdirSync, statSync, readFileSync } from "fs";
 import { join, dirname } from "path";
@@ -267,5 +267,56 @@ describe("buildFindBestApiResponse", () => {
     expect(r["error"]).toBe("No matching APIs found");
     expect(r["candidates"]).toEqual([]);
     expect(r["totalEvaluated"]).toBe(68);
+  });
+});
+
+describe("find_best_api freshness (lastVerified)", () => {
+  beforeEach(() => {
+    _setDbForTesting(new Database(":memory:"));
+    for (const entry of loadAllEntries()) insertEntry(entry);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    closeDb();
+    resetTfIdfEngine();
+  });
+
+  type FreshResp = {
+    recommendation: {
+      slug: string;
+      lastVerified: string;
+      freshness: { lastVerified: string; daysSinceVerified: number; level: string };
+      freshnessNote?: string;
+    };
+    alternatives: Array<{ lastVerified: string }>;
+    candidates: Array<{ lastVerified: string; freshnessLevel: string }>;
+  };
+
+  it("includes the entry's real lastVerified everywhere and never alters it", () => {
+    const r = buildFindBestApiResponse("send transactional emails") as unknown as FreshResp;
+    const entry = loadAllEntries().find((e) => e.slug === r.recommendation.slug)!;
+    expect(r.recommendation.lastVerified).toBe(entry.lastVerified);
+    expect(r.recommendation.freshness.lastVerified).toBe(entry.lastVerified);
+    for (const a of r.alternatives) expect(a.lastVerified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    for (const c of r.candidates) expect(c.lastVerified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("flags stale entries with a freshnessNote", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-12T12:00:00Z"));
+    const r = buildFindBestApiResponse("send transactional emails") as unknown as FreshResp;
+    // All bundled entries are dated 2026-02-25 → 260 days → stale
+    expect(r.recommendation.freshness).toMatchObject({ daysSinceVerified: 260, level: "stale" });
+    expect(r.recommendation.freshnessNote).toContain("2026-02-25");
+    expect(r.candidates.every((c) => c.freshnessLevel === "stale")).toBe(true);
+  });
+
+  it("omits the note when the entry is fresh", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T12:00:00Z"));
+    const r = buildFindBestApiResponse("send transactional emails") as unknown as FreshResp;
+    expect(r.recommendation.freshness.level).toBe("fresh");
+    expect(r.recommendation.freshnessNote).toBeUndefined();
   });
 });

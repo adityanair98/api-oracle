@@ -174,7 +174,9 @@ Before submitting a new entry:
 - [ ] `lastVerified` is today's date
 - [ ] `qualityJustification` explains the score concretely
 - [ ] Pricing data matches the current pricing page
-- [ ] `useCases[].fit` values accurately reflect the API's actual fit
+- [ ] `useCases[].fit` values accurately reflect the API's actual fit. How the scorer reads them:
+  - `perfect` counts fully toward relevance and `good` counts at 0.8.
+  - `partial` is **ignored**. Use it for tasks the API is a poor or limited fit for (e.g. Anthropic: "Generate images or audio"), so a query about that task doesn't surface this API.
 
 ## Quality Bar
 

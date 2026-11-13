@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execSync, spawn, type ChildProcess } from "child_process";
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from "fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -18,6 +18,10 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "../..");
 const cliPath = join(repoRoot, "dist", "cli.js");
+const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf-8")) as {
+  name: string;
+  version: string;
+};
 
 /** Environment for the child: inherited, but never with DB_PATH set. */
 function cleanEnv(extra: Record<string, string> = {}): Record<string, string> {
@@ -65,6 +69,9 @@ describe("fresh install: built CLI from an empty folder", () => {
     await client.connect(transport);
 
     try {
+      // Server reports the package.json version (was hardcoded "0.1.0")
+      expect(client.getServerVersion()?.version).toBe(pkg.version);
+
       const res = await client.callTool({
         name: "find_best_api",
         arguments: { task: "send transactional emails" },
@@ -84,6 +91,13 @@ describe("fresh install: built CLI from an empty folder", () => {
     // Nothing (no ./data/api-oracle.db) may be left in the user's folder
     expect(readdirSync(emptyDir)).toEqual([]);
   }, 30_000);
+
+  it("--help documents the Claude Code command with the published package name", () => {
+    const help = execSync(`"${process.execPath}" "${cliPath}" --help`, { cwd: emptyDir, encoding: "utf-8" });
+    expect(help).toContain(`claude mcp add api-oracle -- npx -y ${pkg.name} serve`);
+    expect(help).not.toContain("~/.claude/claude_desktop_config.json");
+    expect(help).toContain("Claude Desktop");
+  });
 
   it("dashboard: serves all bundled entries from an empty folder (installed under a dot-directory)", async () => {
     const port = 38000 + Math.floor(Math.random() * 1000);

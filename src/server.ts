@@ -2,9 +2,10 @@
  * MCP server setup — creates the server, registers all tools, and handles protocol.
  * Uses @modelcontextprotocol/sdk McpServer (high-level API).
  *
- * Exports: createServer
+ * Exports: createServer, startServer, SERVER_VERSION
  */
 
+import { createRequire } from "module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerFindBestApi } from "./tools/find-api.js";
@@ -15,11 +16,18 @@ import { createLogger } from "./utils/logger.js";
 
 const logger = createLogger("server");
 
+// package.json sits one level above both src/server.ts and dist/server.js
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json") as { version: string };
+
+/** Server version reported to MCP clients — always package.json's version */
+export const SERVER_VERSION: string = pkg.version;
+
 export function createServer(): McpServer {
   const server = new McpServer(
     {
       name: "api-oracle",
-      version: "0.1.0",
+      version: SERVER_VERSION,
     },
     {
       capabilities: {

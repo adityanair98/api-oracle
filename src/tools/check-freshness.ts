@@ -52,7 +52,7 @@ export function registerCheckApiFreshness(server: McpServer): void {
             content: [
               {
                 type: "text" as const,
-                text: "No entries found in the database. Run `npm run seed` first.",
+                text: "The knowledge base is empty: no bundled entries were loaded at startup. Check the server's stderr for 'Skipped invalid entry' or 'Knowledge base is empty' messages.",
               },
             ],
           };

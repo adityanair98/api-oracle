@@ -145,27 +145,22 @@ npm run lint-entries -- --slug=<your-slug>  # content quality check
 
 Fix all errors and warnings before proceeding.
 
-### 6. Seed the database
+### 6. Restart the server
 
-```bash
-npm run seed
-```
-
-This loads your new entry (and any others) into SQLite. Run this before testing.
+The server loads every entry in `src/entries/` into an in-memory database at startup, so there is no seed step. Restart `api-oracle serve` (or `npm run dev`) to pick up your entry. Invalid entries are skipped with a warning on stderr.
 
 ### 7. Verify ranking
 
-Add a test to `tests/knowledge/scorer.test.ts`:
+Add a test to `tests/tools/find-api.test.ts`. Use `findApis` there, not `rankEntries`: `findApis` applies category detection and the relevance gate, so it's what `find_best_api` actually returns. The file's `beforeEach` already loads every entry into an in-memory DB.
 
 ```typescript
-it("'use case description' ranks my-api in top results", () => {
-  const results = rankEntries(allEntries, "use case description", undefined, 5);
-  const myApi = results.find((r) => r.entry.slug === "my-api");
-  expect(myApi).toBeDefined();
+it("'use case description' recommends my-api", () => {
+  const slugs = findApis("use case description", undefined, 3).map((r) => r.entry.slug);
+  expect(slugs).toContain("my-api");
 });
 ```
 
-Run tests: `npm test`
+Run tests with `npm test`, and check overall accuracy with `npm run eval`.
 
 ## Validation Checklist
 
@@ -179,7 +174,9 @@ Before submitting a new entry:
 - [ ] `lastVerified` is today's date
 - [ ] `qualityJustification` explains the score concretely
 - [ ] Pricing data matches the current pricing page
-- [ ] `useCases[].fit` values accurately reflect the API's actual fit
+- [ ] `useCases[].fit` values accurately reflect the API's actual fit. How the scorer reads them:
+  - `perfect` counts fully toward relevance and `good` counts at 0.8.
+  - `partial` is **ignored**. Use it for tasks the API is a poor or limited fit for (e.g. Anthropic: "Generate images or audio"), so a query about that task doesn't surface this API.
 
 ## Quality Bar
 

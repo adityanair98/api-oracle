@@ -1,17 +1,17 @@
 /**
  * End-to-end test script for the api-oracle knowledge base.
  *
- * Tests 8 real-world query scenarios against the live seeded database.
- * Requires npm run seed to have been run first.
+ * Tests 8 real-world query scenarios against the bundled entries.
+ * Loads the bundled entries into memory; no seeding required.
  *
  * Usage: npm run e2e
  */
 
-import { initDb } from "../src/knowledge/db.js";
+import { bootstrapKnowledgeBase } from "../src/knowledge/loader.js";
 import { findApis, getApiBySlug, getApisByCategory } from "../src/knowledge/search.js";
 
-// Initialize the live database (requires npm run seed to have been run)
-initDb();
+// Load the bundled entries into an in-memory database
+bootstrapKnowledgeBase({ dbPath: ":memory:" });
 
 interface TestScenario {
   name: string;
@@ -67,10 +67,11 @@ scenario("2. 'Accept payments in India with UPI' → razorpay over stripe", () =
   );
   const razorpayIdx = slugs.indexOf("razorpay");
   assert(razorpayIdx >= 0, `Razorpay is in top 5 for India payment query (got: ${slugs.join(", ")})`);
-  // Both Stripe and Razorpay should surface for Indian payment queries
+  // Razorpay should win. (Stripe's own entry marks Indian payments as a
+  // partial/poor fit, so the relevance gate may legitimately omit it.)
   assert(
-    slugs.includes("razorpay") && slugs.includes("stripe"),
-    "Both razorpay and stripe appear in results"
+    slugs[0] === "razorpay",
+    `Razorpay ranks first for India/UPI (got: ${slugs.join(", ")})`
   );
 });
 

@@ -3,7 +3,7 @@
  * Integration tests for the find_best_api MCP tool handler.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import { readdirSync, statSync, readFileSync } from "fs";
 import { join, dirname } from "path";
@@ -13,6 +13,7 @@ import { resetTfIdfEngine } from "../../src/knowledge/tfidf.js";
 import { findApis } from "../../src/knowledge/search.js";
 import { validateEntry } from "../../src/knowledge/schema.js";
 import type { ApiEntry } from "../../src/knowledge/schema.js";
+import { buildFindBestApiResponse, MAX_CANDIDATES } from "../../src/tools/find-api.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -180,5 +181,142 @@ describe("find_best_api tool (via findApis)", () => {
       ["zapier", "nango"].includes(s)
     );
     expect(hasIntegration).toBe(true);
+  });
+});
+
+// ─── Fix 2: relevance gating (reviewer-reported failures) ────────────────────
+
+describe("relevance gating — reviewer-reported failures", () => {
+  beforeEach(() => {
+    _setDbForTesting(new Database(":memory:"));
+    for (const entry of loadAllEntries()) insertEntry(entry);
+  });
+
+  afterEach(() => {
+    closeDb();
+    resetTfIdfEngine();
+  });
+
+  const cases: Array<{ task: string; top: string[]; mustNot: string[] }> = [
+    { task: "store user uploaded images and resize them", top: ["cloudinary"], mustNot: ["stripe"] },
+    { task: "speech to text transcription", top: ["deepgram"], mustNot: ["mux"] },
+    { task: "generate images from text", top: ["stability-ai", "replicate", "openai"], mustNot: ["anthropic"] },
+    { task: "send transactional emails", top: ["resend", "sendgrid", "postmark", "mailgun"], mustNot: ["stripe", "twilio"] },
+    { task: "full text search for my product catalog", top: ["algolia"], mustNot: ["twilio", "stripe"] },
+  ];
+
+  it.each(cases)("'$task'", ({ task, top, mustNot }) => {
+    const slugs = findApis(task, undefined, 3).map((r) => r.entry.slug);
+    expect(top).toContain(slugs[0]);
+    for (const bad of mustNot) expect(slugs).not.toContain(bad);
+  });
+
+  it("returns nothing for a query unrelated to any entry", () => {
+    expect(findApis("quantum-entanglement-api-xyz-9999", undefined, 3)).toEqual([]);
+  });
+});
+
+describe("buildFindBestApiResponse", () => {
+  beforeEach(() => {
+    _setDbForTesting(new Database(":memory:"));
+    for (const entry of loadAllEntries()) insertEntry(entry);
+  });
+
+  afterEach(() => {
+    closeDb();
+    resetTfIdfEngine();
+  });
+
+  type Resp = {
+    recommendation: Record<string, unknown> & { slug: string };
+    alternatives: Array<{ slug: string; score: number }>;
+    candidates: Array<{ slug: string; relevance: number; category: string; bestFor: string }>;
+    totalEvaluated: number;
+  };
+
+  it("keeps the v0.5.0 response shape and adds candidates", () => {
+    const r = buildFindBestApiResponse("send transactional emails") as unknown as Resp;
+    for (const key of [
+      "name", "slug", "why", "qualityScore", "confidence", "confidenceLabel",
+      "scoreBreakdown", "quickStart", "gotchas", "pricing", "website", "rateLimitNote",
+    ]) {
+      expect(r.recommendation).toHaveProperty(key);
+    }
+    expect(Array.isArray(r.alternatives)).toBe(true);
+
+    expect(r.candidates.length).toBeGreaterThan(0);
+    expect(r.candidates.length).toBeLessThanOrEqual(MAX_CANDIDATES);
+    expect(r.candidates[0]!.slug).toBe(r.recommendation.slug);
+    for (const alt of r.alternatives) {
+      expect(r.candidates.map((c) => c.slug)).toContain(alt.slug);
+    }
+    for (const c of r.candidates) {
+      expect(c.relevance).toBeGreaterThan(0);
+      expect(c.bestFor).toBeTruthy();
+    }
+  });
+
+  it("totalEvaluated counts entries scored, not results + alternatives", () => {
+    const r = buildFindBestApiResponse("send transactional emails") as unknown as Resp;
+    // v0.5.0 reported results.length + alternatives.length (= 5 for 3 results)
+    expect(r.totalEvaluated).toBe(68);
+  });
+
+  it("no-match response still has totalEvaluated and an empty candidates list", () => {
+    const r = buildFindBestApiResponse("quantum-entanglement-api-xyz-9999");
+    expect(r["error"]).toBe("No matching APIs found");
+    expect(r["candidates"]).toEqual([]);
+    expect(r["totalEvaluated"]).toBe(68);
+  });
+});
+
+describe("find_best_api freshness (lastVerified)", () => {
+  beforeEach(() => {
+    _setDbForTesting(new Database(":memory:"));
+    for (const entry of loadAllEntries()) insertEntry(entry);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    closeDb();
+    resetTfIdfEngine();
+  });
+
+  type FreshResp = {
+    recommendation: {
+      slug: string;
+      lastVerified: string;
+      freshness: { lastVerified: string; daysSinceVerified: number; level: string };
+      freshnessNote?: string;
+    };
+    alternatives: Array<{ lastVerified: string }>;
+    candidates: Array<{ lastVerified: string; freshnessLevel: string }>;
+  };
+
+  it("includes the entry's real lastVerified everywhere and never alters it", () => {
+    const r = buildFindBestApiResponse("send transactional emails") as unknown as FreshResp;
+    const entry = loadAllEntries().find((e) => e.slug === r.recommendation.slug)!;
+    expect(r.recommendation.lastVerified).toBe(entry.lastVerified);
+    expect(r.recommendation.freshness.lastVerified).toBe(entry.lastVerified);
+    for (const a of r.alternatives) expect(a.lastVerified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    for (const c of r.candidates) expect(c.lastVerified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("flags stale entries with a freshnessNote", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-12T12:00:00Z"));
+    const r = buildFindBestApiResponse("send transactional emails") as unknown as FreshResp;
+    // All bundled entries are dated 2026-02-25 → 260 days → stale
+    expect(r.recommendation.freshness).toMatchObject({ daysSinceVerified: 260, level: "stale" });
+    expect(r.recommendation.freshnessNote).toContain("2026-02-25");
+    expect(r.candidates.every((c) => c.freshnessLevel === "stale")).toBe(true);
+  });
+
+  it("omits the note when the entry is fresh", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T12:00:00Z"));
+    const r = buildFindBestApiResponse("send transactional emails") as unknown as FreshResp;
+    expect(r.recommendation.freshness.level).toBe("fresh");
+    expect(r.recommendation.freshnessNote).toBeUndefined();
   });
 });

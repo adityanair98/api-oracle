@@ -1,6 +1,6 @@
 {
   "name": "@adityanair98/api-oracle",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "MCP server that finds, evaluates, and recommends the best API for any programming task",
   "type": "module",
   "main": "dist/index.js",
@@ -25,7 +25,7 @@
   },
   "license": "MIT",
   "scripts": {
-    "build": "tsc && cp -r src/dashboard/public dist/dashboard/public",
+    "build": "rm -rf dist && tsc && cp -r src/dashboard/public dist/dashboard/public",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -33,11 +33,12 @@
     "seed": "tsx scripts/seed-db.ts",
     "e2e": "tsx scripts/e2e-test.ts",
     "analyze": "tsx scripts/scoring-analysis.ts",
+    "eval": "tsx scripts/eval.ts",
     "refresh-report": "tsx scripts/refresh-report.ts",
     "lint-entries": "tsx scripts/lint-entries.ts",
     "dashboard": "tsx src/dashboard/server.ts",
     "dashboard:dev": "tsx watch src/dashboard/server.ts",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "node -e \"if(/FILL_ME_/.test(require('fs').readFileSync('README.md','utf8'))){console.error('README.md still has FILL_ME_ placeholders');process.exit(1)}\" && npm run build && npm test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.27.1",

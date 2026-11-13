@@ -10,7 +10,8 @@
 import express from "express";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { initDb } from "../knowledge/db.js";
+import { getAllEntries } from "../knowledge/db.js";
+import { bootstrapKnowledgeBase } from "../knowledge/loader.js";
 import { config } from "../utils/config.js";
 import { createLogger } from "../utils/logger.js";
 import { apiRouter } from "./routes/api.js";
@@ -33,23 +34,29 @@ export function startDashboard(): void {
   // Mount REST API
   app.use("/api", apiRouter);
 
-  // Catch-all: serve index.html for client-side routing
-  app.get("*", (_req, res) => {
-    res.sendFile(join(publicDir, "index.html"));
+  // Catch-all: serve index.html for client-side routing.
+  // Express 5 (path-to-regexp v8) requires a named wildcard — a bare "*" throws at startup.
+  app.get("/{*splat}", (_req, res) => {
+    // Resolve relative to `root`: with an absolute path, send() refuses any
+    // dot-directory in it (npx installs under ~/.npm/_npx/…) and returns 404.
+    res.sendFile("index.html", { root: publicDir });
   });
+
+  const entries = getAllEntries();
+  const categoryCount = new Set(entries.map((e) => e.category)).size;
 
   app.listen(PORT, () => {
     process.stdout.write(`\n  API Oracle Dashboard\n`);
     process.stdout.write(`  ───────────────────────────────\n`);
     process.stdout.write(`  Local:   http://localhost:${PORT}\n`);
-    process.stdout.write(`  Entries: 68 APIs across 23 categories\n\n`);
+    process.stdout.write(`  Entries: ${entries.length} APIs across ${categoryCount} categories\n\n`);
   });
 }
 
 // When run directly (npm run dashboard)
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
-  logger.info("Initializing database for dashboard", { dbPath: config.dbPath });
-  initDb(config.dbPath);
+  logger.info("Loading knowledge base for dashboard", { dbPath: config.dbPath });
+  bootstrapKnowledgeBase();
   startDashboard();
 }

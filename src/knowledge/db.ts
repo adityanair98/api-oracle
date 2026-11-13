@@ -97,13 +97,19 @@ function deserializeRow(row: Record<string, unknown>): ApiEntry {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export function initDb(dbPath: string = "./data/api-oracle.db"): void {
+/**
+ * Open the database. Defaults to an in-memory database — callers that want
+ * data must load it (see bootstrapKnowledgeBase in loader.ts).
+ */
+export function initDb(dbPath: string = ":memory:"): void {
   if (db) return; // already initialized
   if (dbPath !== ":memory:") {
     mkdirSync(dirname(dbPath), { recursive: true });
   }
   db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
+  if (dbPath !== ":memory:") {
+    db.pragma("journal_mode = WAL");
+  }
   db.pragma("foreign_keys = ON");
   db.exec(CREATE_TABLE_SQL);
   db.exec(CREATE_CATEGORY_INDEX_SQL);
@@ -146,6 +152,39 @@ export function insertEntry(entry: ApiEntry): void {
   const stmt = database.prepare(sql);
   stmt.run(row);
   logger.info("Inserted entry", { slug: entry.slug });
+}
+
+/**
+ * Insert or replace many entries in one transaction (quiet: one log line).
+ * Entries are re-validated; returns the number written.
+ */
+export function upsertEntries(entries: ApiEntry[]): number {
+  const database = getDb();
+  const rows = entries.map((entry) => {
+    const validation = validateEntry(entry);
+    if (!validation.success) {
+      throw new Error(`Invalid entry ${entry.slug}: ${validation.errors.join("; ")}`);
+    }
+    return serializeEntry(validation.data);
+  });
+  if (rows.length === 0) return 0;
+
+  const columns = Object.keys(rows[0]!);
+  const placeholders = columns.map((c) => `@${c}`).join(", ");
+  const stmt = database.prepare(
+    `INSERT OR REPLACE INTO apis (${columns.join(", ")}) VALUES (${placeholders})`
+  );
+  const writeAll = database.transaction((batch: Record<string, unknown>[]) => {
+    for (const row of batch) stmt.run(row);
+  });
+  writeAll(rows);
+  logger.debug("Upserted entries", { count: rows.length });
+  return rows.length;
+}
+
+export function countEntries(): number {
+  const row = getDb().prepare("SELECT COUNT(*) AS n FROM apis").get() as { n: number };
+  return row.n;
 }
 
 export function getBySlug(slug: string): ApiEntry | null {

@@ -1,9 +1,9 @@
 /**
- * Entry point — initializes the SQLite database and starts the MCP server.
+ * Entry point — loads the bundled knowledge base and starts the MCP server.
  * Run with: npm run dev (via tsx) or node dist/index.js (compiled).
  */
 
-import { initDb } from "./knowledge/db.js";
+import { bootstrapKnowledgeBase } from "./knowledge/loader.js";
 import { startServer } from "./server.js";
 import { config } from "./utils/config.js";
 import { logger } from "./utils/logger.js";
@@ -14,9 +14,8 @@ async function main(): Promise<void> {
     nodeEnv: config.nodeEnv,
   });
 
-  // Initialize SQLite database (creates tables if they don't exist)
-  initDb(config.dbPath);
-  logger.info("Database initialized");
+  // Open the database and load the bundled entries (in-memory unless DB_PATH is set)
+  bootstrapKnowledgeBase();
 
   // Start the MCP server on stdio
   await startServer();

@@ -6,15 +6,15 @@ API Oracle is an MCP server that gives Claude Code the ability to find, evaluate
 
 **Architecture:**
 ```
-Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSON entries
+Claude Code → MCP tools → search layer → SQLite DB (in-memory) ← loader (at startup) ← bundled JSON entries
 ```
 
-**Current state (v0.5.0):**
-- 68 API entries across 23 categories
+**Current state (v0.6.0):**
+- 68 API entries across 23 categories, loaded into an in-memory SQLite DB at startup
 - 4 MCP tools: find_best_api, compare_apis, get_api_setup_guide, check_api_freshness
 - Web dashboard at http://localhost:3737 (`npm run dashboard`)
 - CLI entry point: `api-oracle serve|dashboard`
-- 160 tests passing
+- 226 tests passing; retrieval eval via `npm run eval` (dev + held-out sets)
 - Auto-updater system with staleness tracking and quality linter
 
 ## Available npm Scripts
@@ -23,12 +23,13 @@ Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSO
 |--------|---------|
 | `npm run build` | Compile TypeScript to `dist/` + copy `src/dashboard/public` to `dist/` |
 | `npm run dev` | Run MCP server directly with tsx (no compile needed) |
-| `npm test` | Run all tests with Vitest (160 tests) |
+| `npm test` | Run all tests with Vitest (226 tests) |
 | `npm run test:watch` | Watch mode for tests |
 | `npm run validate` | Validate all JSON entries against schema + cross-references (CI-safe) |
-| `npm run seed` | Load all JSON entries into SQLite database |
-| `npm run e2e` | Run end-to-end query scenarios against the live database |
-| `npm run analyze` | Score representative queries and show breakdown (requires seeded DB) |
+| `npm run seed` | Optional: write the entries to a SQLite file (`./data/api-oracle.db` or `DB_PATH`). Not needed to run the server |
+| `npm run e2e` | Run end-to-end query scenarios (loads bundled entries in memory) |
+| `npm run analyze` | Score representative queries and show breakdown (loads bundled entries in memory) |
+| `npm run eval` | Retrieval accuracy (top-1, top-3, must-not violations) on tests/eval/dev.json and holdout.json. Tune on dev only |
 | `npm run refresh-report` | Check entry staleness (--brief, --format=json, --level=stale) |
 | `npm run lint-entries` | Lint entry quality (--severity=warning, --slug=<slug>, --summary) |
 | `npm run dashboard` | Start web dashboard at http://localhost:3737 |
@@ -49,45 +50,47 @@ Claude Code → MCP tools → search layer → SQLite DB ← seed script ← JSO
 | **Schema** | `src/knowledge/schema.ts` | Zod schema + TypeScript types for API entries |
 | **Database** | `src/knowledge/db.ts` | SQLite CRUD via better-sqlite3 |
 | **Synonyms** | `src/knowledge/synonyms.ts` | Query expansion, phrase detection, category detection |
-| **TF-IDF** | `src/knowledge/tfidf.ts` | In-memory TF-IDF index for candidate pre-ranking |
-| **Search** | `src/knowledge/search.ts` | Pipeline orchestration: phrases → synonyms → TF-IDF → scorer |
-| **Scorer** | `src/knowledge/scorer.ts` | Weighted multi-factor ranking (6 dimensions + category boost) |
+| **TF-IDF** | `src/knowledge/tfidf.ts` | In-memory TF-IDF index; candidate pre-selection only when the KB exceeds 500 entries |
+| **Search** | `src/knowledge/search.ts` | Pipeline: phrase + category detection → score all entries → relevance gate (`RELEVANCE_GATE`) |
+| **Relevance** | `src/knowledge/relevance.ts` | Query relevance: IDF-weighted coverage of query words + ordered word pairs |
+| **Scorer** | `src/knowledge/scorer.ts` | relevance = min(coverage + keyword bonus, 1) × categoryFit; score = relevance × (0.75 + 0.25 × prior) + keyword term |
+| **Loader** | `src/knowledge/loader.ts` | Loads + validates bundled entries at startup (resolved via import.meta.url) |
 | **Tools** | `src/tools/*.ts` | MCP tool handlers — format results for Claude |
 | **Updater** | `src/updater/*.ts` | Staleness checker, version tracker, report formatter, quality linter |
 | **Dashboard** | `src/dashboard/` | Express web dashboard — REST API + vanilla JS/CSS/HTML frontend |
 | **CLI** | `src/cli.ts` | `api-oracle serve|dashboard` CLI entry point |
 | **Server** | `src/server.ts` | McpServer setup, tool registration |
-| **Entry** | `src/index.ts` | MCP startup: init DB, start server |
+| **Entry** | `src/index.ts` | MCP startup: load knowledge base, start server |
 | **Entries** | `src/entries/**/*.json` | API knowledge base (one JSON per API, 68 total) |
-| **Scripts** | `scripts/*.ts` | seed-db, validate-entries, e2e-test, scoring-analysis, refresh-report, lint-entries |
+| **Scripts** | `scripts/*.ts` | seed-db, validate-entries, e2e-test, scoring-analysis, eval, refresh-report, lint-entries |
 
 ## Entry Categories (23 total)
 
-| Category | Examples |
+| Category | Entries |
 |----------|---------|
-| email | resend, sendgrid, postmark, mailgun |
-| payments | stripe, paddle, lemonsqueezy, paypal |
-| ai | openai, anthropic, stability-ai, eleven-labs |
+| email | mailgun, postmark, resend, sendgrid |
+| payments | lemonsqueezy, paddle, paypal, razorpay, square, stripe |
+| ai | anthropic, eleven-labs, openai, replicate, resemble-ai, stability-ai |
 | storage | cloudinary, uploadthing |
-| search | algolia, typesense |
-| auth | clerk, auth0 |
-| messaging | twilio, vonage, pusher, ably |
-| analytics | mixpanel, posthog, segment, amplitude |
-| database | supabase, firebase, neon, planetscale, upstash |
-| media | cloudinary, mux, deepgram |
-| notifications | onesignal, knock, novu |
+| search | algolia |
+| auth | auth0, clerk |
+| messaging | ably, pusher, twilio, vonage |
+| analytics | posthog, sentry |
+| database | firebase, neon, planetscale, supabase, upstash |
+| media | deepgram, imgix, mux |
+| notifications | knock, novu, onesignal |
 | maps | google-maps, mapbox |
-| communication | stream-chat, sendbird, daily-co |
-| devops | vercel, netlify, railway, fly-io |
+| communication | sendbird, stream-chat |
+| devops | fly-io, netlify, railway, vercel |
 | infrastructure | aws-s3, cloudflare-r2, cloudflare-workers, digital-ocean-spaces |
-| commerce | shopify-api, medusa |
+| commerce | medusa, shopify-api |
 | cms | contentful, sanity, strapi |
-| forms | typeform, formspark |
+| forms | formspark, typeform |
 | scheduling | cal-com, calendly |
 | testing | browserstack, checkly |
-| security | snyk, arcjet |
-| workflow | trigger-dev, inngest, temporal |
-| integration | zapier, nango |
+| security | arcjet, snyk |
+| workflow | inngest, temporal, trigger-dev |
+| integration | nango, zapier |
 
 ## How to Add a New API Entry
 
@@ -120,10 +123,8 @@ npm run validate
 ```
 Fix any errors before proceeding.
 
-### Step 4: Seed (re-run to add new entries)
-```bash
-npm run seed
-```
+### Step 4: Restart the server
+Entries are loaded from `src/entries/` at startup, so a restart picks up new or edited entries. No seeding step is needed.
 
 ### Step 5: Lint and test
 ```bash
@@ -138,8 +139,12 @@ npm test              # Run all tests once
 npm run test:watch    # Watch mode during development
 ```
 
-Tests use in-memory SQLite so there's no filesystem side effect. All tests are in `tests/`.
-- `tests/knowledge/` — schema, db, synonyms, TF-IDF, scorer
+Unit tests use in-memory SQLite. `tests/cli/` runs `npm run build` (which starts with `rm -rf dist`) and uses temp dirs, so `npm test` rewrites `dist/`. Don't run it alongside a build or anything that uses `dist/`. All tests are in `tests/`.
+- `tests/knowledge/` — schema, db, loader, synonyms, TF-IDF, relevance, scorer
+- `tests/cli/` — builds the package and runs `dist/cli.js` from an empty temp folder (serve over MCP stdio, dashboard over HTTP)
+- `tests/eval/` — eval query sets, harness tests, saved results (`npm run eval` is the measurement)
+- `tests/docs/` — README setup / badge / version consistency guards
+- `tests/utils/` — logger (LOG_LEVEL)
 - `tests/tools/` — MCP tool integration tests (find-api)
 - `tests/updater/` — staleness checker, version tracker, linter
 - `tests/dashboard/` — dashboard REST API integration tests (all 8 endpoints)
@@ -181,8 +186,11 @@ A high-quality entry must have:
 
 ## Scoring Algorithm (Summary)
 
-Weights: useCaseFit (35%) + qualityScore (20%) + devExperience (15%) + pricingFit (15%) + keywordRelevance (10%) + recencyBonus (5%)
+Relevance gates the score: `relevance = min(coverage + keyword bonus, 1) × categoryFit`; `score = relevance × (0.75 + 0.25 × prior) + keywordRelevance × 0.10 × categoryFit`.
+- coverage: IDF-weighted coverage of the query's words (name/subcategory/bestFor/perfect+good use cases; description 0.6; synonyms 0.4; `partial` use cases ignored as known poor fits) plus ordered word pairs; product names match exactly, never by prefix
+- prior: quality 0.20, devExperience 0.15, pricingFit 0.15, recency 0.05 (relative weights from `SCORING_WEIGHTS`)
+- gate (on relevance, after categoryFit): drop relevance < 0.2, < 0.6 × best, or clearly unrelated category
 
-Category boost: up to 12% for detected category match.
+Measure every change with `npm run eval`; tune on `tests/eval/dev.json` only, never on `holdout.json`.
 
 See `docs/scoring-logic.md` for full details.

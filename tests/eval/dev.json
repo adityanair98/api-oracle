@@ -1,0 +1,32 @@
+{
+  "name": "dev",
+  "description": "Development queries — safe to tune on. d01–d20 are the 20 queries from scripts/scoring-analysis.ts that the v0.5.0 weights were tuned against (labels tightened from 'any of these in top 3' to honest top-1 answers). d21–d24 are the reviewer-reported failures (the fifth, 'send transactional emails', is d01). d25–d26 come from existing tests.",
+  "queries": [
+    { "id": "d01", "query": "send transactional emails", "acceptableTop1": ["resend", "sendgrid", "postmark", "mailgun"], "mustNotTop3": ["stripe", "twilio"], "note": "review failure: Stripe listed as an alternative" },
+    { "id": "d02", "query": "process credit card payments", "acceptableTop1": ["stripe"], "mustNotTop3": ["mux"] },
+    { "id": "d03", "query": "user authentication for web app", "acceptableTop1": ["clerk", "auth0"], "mustNotTop3": ["stripe"] },
+    { "id": "d04", "query": "store files and images", "acceptableTop1": ["cloudinary", "uploadthing", "aws-s3", "cloudflare-r2"], "mustNotTop3": ["stripe"] },
+    { "id": "d05", "query": "full-text search for my app", "acceptableTop1": ["algolia"], "mustNotTop3": ["twilio", "stripe"] },
+    { "id": "d06", "query": "my users need to log in with Google and GitHub", "acceptableTop1": ["clerk", "auth0"], "mustNotTop3": ["stripe"] },
+    { "id": "d07", "query": "I want to add a chat feature to my app", "acceptableTop1": ["stream-chat", "sendbird", "pusher", "ably"], "mustNotTop3": ["stripe"] },
+    { "id": "d08", "query": "need to know when my app crashes in production", "acceptableTop1": ["sentry"], "mustNotTop3": ["stripe"] },
+    { "id": "d09", "query": "let users upload profile pictures", "acceptableTop1": ["uploadthing", "cloudinary"], "mustNotTop3": ["stripe"] },
+    { "id": "d10", "query": "send an SMS when someone places an order", "acceptableTop1": ["twilio", "vonage"], "mustNotTop3": [] },
+    { "id": "d11", "query": "I'm building a SaaS and need billing", "acceptableTop1": ["stripe", "paddle", "lemonsqueezy"], "mustNotTop3": ["mux"] },
+    { "id": "d12", "query": "I need a backend for my mobile app", "acceptableTop1": ["firebase", "supabase"], "mustNotTop3": ["stripe"] },
+    { "id": "d13", "query": "I want to track how users interact with my product", "acceptableTop1": ["posthog"], "mustNotTop3": ["stripe"] },
+    { "id": "d14", "query": "I need to store data but I'm on Vercel", "acceptableTop1": ["supabase", "neon", "planetscale", "upstash"], "mustNotTop3": ["stripe"] },
+    { "id": "d15", "query": "I need AI in my app", "acceptableTop1": ["openai", "anthropic"], "mustNotTop3": [] },
+    { "id": "d16", "query": "cheapest way to send emails", "acceptableTop1": ["resend", "sendgrid", "postmark", "mailgun"], "mustNotTop3": ["stripe"] },
+    { "id": "d17", "query": "most reliable payment processor", "acceptableTop1": ["stripe"], "mustNotTop3": ["mux"] },
+    { "id": "d18", "query": "real-time anything", "acceptableTop1": ["pusher", "ably", "supabase"], "mustNotTop3": [] },
+    { "id": "d19", "query": "I need everything — auth, database, storage", "acceptableTop1": ["supabase", "firebase"], "mustNotTop3": [] },
+    { "id": "d20", "query": "something like Firebase but open source", "acceptableTop1": ["supabase"], "mustNotTop3": [] },
+    { "id": "d21", "query": "store user uploaded images and resize them", "acceptableTop1": ["cloudinary"], "mustNotTop3": ["stripe"], "note": "review failure: Stripe ranked first" },
+    { "id": "d22", "query": "speech to text transcription", "acceptableTop1": ["deepgram"], "mustNotTop3": ["eleven-labs", "resemble-ai"], "note": "review failure: Mux ranked first" },
+    { "id": "d23", "query": "generate images from text", "acceptableTop1": ["stability-ai", "replicate", "openai"], "mustNotTop3": ["anthropic"], "note": "review failure: Anthropic (no image generation) listed as alternative" },
+    { "id": "d24", "query": "full text search for my product catalog", "acceptableTop1": ["algolia"], "mustNotTop3": ["twilio", "stripe"], "note": "review failure: Twilio and Stripe listed as alternatives" },
+    { "id": "d25", "query": "send push notifications to iOS and Android users", "acceptableTop1": ["onesignal"], "mustNotTop3": ["stripe"] },
+    { "id": "d26", "query": "deploy a Next.js app to production", "acceptableTop1": ["vercel"], "mustNotTop3": ["stripe"] }
+  ]
+}

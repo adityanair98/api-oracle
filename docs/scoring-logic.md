@@ -1,197 +1,96 @@
 # Scoring Logic
 
-API Oracle ranks APIs using a weighted multi-factor scoring system. This document explains how it works and how to tune it.
+How `find_best_api` decides what to recommend. The code is in `src/knowledge/relevance.ts`, `scorer.ts` and `search.ts`.
 
 ## Overview
 
-When `findApis(query, constraints, topN)` is called, the pipeline has 6 steps:
-
-1. **Phrase detection** — extract modifier intent (`preferFree`, `preferOpenSource`, etc.)
-2. **Synonym expansion** — `expandQuery()` adds related terms (e.g. "crash" → "error monitoring sentry crash reporting…")
-3. **Category detection** — `detectCategory()` maps the query to a known category with a confidence score
-4. **Candidate selection** — TF-IDF index pre-ranks all entries; high-confidence category entries are also included
-5. **Scoring** — each candidate is scored across 6 weighted dimensions
-6. **Confidence** — `computeConfidence()` assesses certainty of the top recommendation
-
-## Scoring Factors
-
-Current weights (must sum to 1.0):
-
-| Factor | Weight | Measures |
-|--------|--------|----------|
-| `useCaseFit` | 35% | Relevance to the query across multiple fields |
-| `qualityScore` | 20% | Curated quality rating (1-10) |
-| `developerExperience` | 15% | SDK quality, code examples, auth clarity |
-| `pricingFit` | 15% | Pricing model alignment with constraints |
-| `keywordRelevance` | 10% | Direct name/slug/subcategory keyword match |
-| `recencyBonus` | 5% | How recently the entry was verified |
-
-### 1. Use Case Fit (35%)
-
-Measures relevance using 4 sub-signals:
-
-| Sub-signal | Weight | Description |
-|------------|--------|-------------|
-| Use case task overlap | 40% | Token overlap between query and each `useCases[].task`; fit multiplier applied (`perfect`=1.0, `good`=0.7, `partial`=0.4); best match wins |
-| `bestFor` overlap | 25% | Token overlap with the API's concise purpose statement |
-| Description overlap | 20% | Token overlap against first 200 chars of description |
-| Category signal match | 15% | Keyword lists per category (e.g. email: `["email", "smtp", "newsletter"…]`) |
-
-The query is tokenized before scoring — stop words are removed, 2+ char tokens are kept. The synonym-expanded query is used, so "crashes" in a query triggers the error tracking category signals.
-
-### 2. Quality Score (20%)
-
-Directly from the curated `qualityScore` field (1-10), normalized to 0-1:
+**Relevance gates the score.** Quality, developer experience, pricing and recency don't depend on the query. They can adjust an entry that is already relevant, but they can't make an unrelated API rank. (In v0.5.0 they were 55% of an additive score, which is why Stripe showed up for image and email queries.)
 
 ```
-quality_raw = (qualityScore - 1) / 9
+relevance = min(coverage + keyword bonus, 1) × categoryFit       ∈ [0, 1]
+prior     = weighted mean(quality, DX, pricing, recency)         ∈ [0, 1]
+score     = relevance × (0.75 + 0.25 × prior)
+            + keywordRelevance × 0.10 × categoryFit             (user named the API)
 ```
 
-This ensures high-quality APIs (Stripe at 10, Clerk at 9) have a constant advantage, even for fuzzy queries.
+Next, `findApis` drops every candidate that fails the relevance gate (see [Gating](#gating)). The top 3 that survive become the recommendation and the alternatives. The top 5 are returned as `candidates`.
 
-### 3. Developer Experience (15%)
+## 1. Coverage (`relevance.ts`)
 
-Measures ease of integration using objective entry signals:
+Coverage is the IDF-weighted share of the query's words that an entry covers.
 
-| Signal | Points |
-|--------|--------|
-| TypeScript as primary SDK | +3 |
-| TypeScript available (not primary) | +1.5 |
-| 2+ code examples | +2 |
-| 1 code example | +1 |
-| `envVarName` defined (clear auth setup) | +1 |
-| `installCommand` includes `npm install` | +1 |
-| 3+ languages in `otherLanguages` | +1 |
-| Required language matches primary *(constraint)* | +2 |
-| Required language available *(constraint)* | +1 |
+1. **Query concepts.** The query is tokenised. Filler words ("need", "know", "app"), preference modifiers ("cheapest", "reliable": these are handled by constraints) and domain-generic words ("api", "sdk") are dropped. Each remaining word is a concept. Each ordered word pair ("speech text") is also a concept, at half weight. That's how "speech to text" can be told apart from "text to speech".
+2. **Matching.** A concept counts as covered by the best field it appears in:
 
-Max = 8 pts (10 pts when `requiredLanguage` constraint is set). Score normalized to 0-1.
+   | Field | Weight |
+   |-------|--------|
+   | name, slug, subcategory, bestFor, `perfect` use cases | 1.0 |
+   | `good` use cases | 0.8 |
+   | description, category | 0.6 |
+   | `partial` use cases | **ignored** |
 
-### 4. Pricing Fit (15%)
+   In this knowledge base, `partial` marks known poor fits. Examples: Anthropic's "Generate images or audio", Twilio's "Send transactional emails", Stripe's "Process payments in emerging markets like India".
+   A word matches by light prefix stemming ("image" ~ "images", "transcribe" ~ "transcription", but not "store" ~ "storefront"). Product names in entry names (openai, auth0, uploadthing, cal…) only match exactly, so "open source" never counts as "OpenAI" and "calls" never counts as "Cal.com". A match that only comes through a synonym group (`synonyms.ts`) earns 0.4 of the field weight. Brand names inside synonym groups (stripe, twilio, mux…) are never used as synonyms.
+3. **IDF.** Each concept is weighted by `log((N+1)/(df+1)) + 1` over the entries being ranked, so specific words ("transcription", "resize") outweigh generic ones ("users", "data"). A word that no entry matches keeps weight 1.0. That way a query made mostly of unknown words gets low relevance everywhere, instead of a perfect score for its one known word.
 
-| Condition | Score |
-|-----------|-------|
-| `preferFree` + `free` or `open_source` model | 1.0 |
-| `preferFree` + `freemium` with free tier | 0.85 |
-| `preferFree` + `usage_based` | 0.60 |
-| `preferFree` + `paid` only | 0.20 |
-| No preference + `free` or `open_source` | 0.70 |
-| No preference + `freemium` | 0.65 |
-| No preference + `usage_based` | 0.60 |
-| No preference + `paid` | 0.50 |
+## 2. Keyword signal
 
-Phrase detection can auto-apply `preferFree` from query language (e.g. "cheapest way to send emails").
+If the user names an API or its subcategory ("algolia", "transactional email"), `keywordRelevance` (overlap of the original query with the entry's name, slug and subcategory) is used twice:
 
-### 5. Keyword Relevance (10%)
+- `keywordRelevance × (0.10 / 0.35)` is added to coverage before the clamp at 1. This affects gating.
+- `keywordRelevance × 0.10 × categoryFit` is added to the final score, outside the clamp. Without this term, a query like "firebase" ties Firebase with entries that merely mention it (Supabase: "the open-source Firebase alternative"), and the tie goes to the better prior.
 
-Direct keyword match against the API's name, slug, and subcategory. Rewards queries where the user names an API directly (e.g. "use stripe for payments") or names the subcategory (e.g. "transactional email").
+## 3. Category fit
 
-```
-score = nameMatch * 0.5 + slugMatch * 0.3 + subCatMatch * 0.2
-```
+`detectCategory()` maps the query to a category with a confidence score. When the confidence is at least 0.4, relevance is multiplied by:
 
-### 6. Recency Bonus (5%)
+| Entry category vs detected | Factor |
+|----------------------------|--------|
+| same | 1.0 |
+| related (`CATEGORY_AFFINITY`, e.g. storage ↔ infrastructure ↔ media) | 0.9 |
+| unrelated | 0.7 |
 
-Entries verified within 30 days → 1.0. Scales linearly to 0 at 365 days.
+## 4. Prior
 
-## Category Boost
+Weighted mean of four query-independent factors. Their relative weights come from `SCORING_WEIGHTS`:
 
-After the base score is computed, a category boost is applied if a category was detected with ≥ 0.4 confidence:
+| Factor | Weight in prior | Computation |
+|--------|-----------------|-------------|
+| Quality | 0.20 / 0.55 | `(qualityScore − 1) / 9` |
+| Developer experience | 0.15 / 0.55 | TypeScript SDK (3), 2+ code examples (2), env var (1), npm install (1), 3+ other SDKs (1); +2 for `requiredLanguage` match |
+| Pricing fit | 0.15 / 0.55 | free/open source 0.70, freemium 0.65, usage-based 0.60, paid 0.50; with `preferFree`: 1.0 / 0.85 / 0.60 / 0.20 |
+| Recency | 0.05 / 0.55 | 1.0 if verified within 30 days, linear to 0 at 365 days |
 
-```
-boosted_score = score * (1 + confidence * 0.12)
-```
+`PRIOR_INFLUENCE = 0.25`: the prior scales a score between 0.75× and 1.0× of its relevance, so the worst prior costs at most 25% of the score. An entry with zero relevance (and no keyword match) scores zero.
 
-This gives entries in the correct category up to a 12% boost, helping narrow queries ("real-time chat", "serverless database") beat entries with high quality scores but wrong categories.
+## Gating
 
-## TF-IDF Candidate Selection
+`RELEVANCE_GATE` in `search.ts`. A candidate is kept only if:
 
-Before the scorer runs, a TF-IDF index (built lazily, cached in-memory) pre-ranks all entries for the expanded query. Field weights:
+- relevance ≥ **0.2**, and
+- relevance ≥ **0.6 ×** the best candidate's relevance, and
+- it isn't in an unrelated category (factor 0.7) while the category was detected with confidence ≥ 0.5, unless its own relevance is ≥ 0.6.
 
-| Field | TF-IDF weight |
-|-------|--------------|
-| `name` | ×4 |
-| `subcategory` | ×3 |
-| `bestFor` | ×3 |
-| `useCases[].task` | ×2 |
-| `description` (first 300 chars) | ×1 |
-| `category` | ×1 |
+The trade-off: a strict gate removes irrelevant alternatives but can leave only 1 or 2 candidates for narrow queries. Algolia, for example, is the only search API. That's intended: `candidates` lists only entries that are actually relevant.
 
-IDF uses Laplace smoothing: `log((N+1)/(df+1)) + 1` — so terms that appear in many documents (like "api" or "data") are downweighted relative to discriminating terms like "transactional" or "geocode".
+## Candidate pool
 
-The top `topN * 8` TF-IDF results are passed to the scorer, along with all category entries for high-confidence category detections.
+For knowledge bases of up to 500 entries, every entry is scored (68 today). Above that, the TF-IDF index (`tfidf.ts`) and the detected category pre-select candidates.
 
-## Confidence Score
+## Confidence
 
-`computeConfidence()` estimates certainty for the top recommendation (0-1, only set on the #1 result):
+The top result gets a confidence value: 0.5 × relevance signal (relevance / 0.7, capped at 1) + 0.25 × category-detection confidence + 0.25 × relative lead over the runner-up. Labels: high ≥ 0.7, medium ≥ 0.4, otherwise low.
 
-| Signal | Weight |
-|--------|--------|
-| `useCaseFit` of top result (0.5+ → full signal) | 40% |
-| `detectedConfidence` from category detection | 35% |
-| Score separation (gap between rank 1 and 2) | 25% |
+## Score breakdown
 
-Labels: `confidence >= 0.7` → "high", `>= 0.4` → "medium", else "low".
+`scoreBreakdown` in responses contains `useCaseFit` (coverage), `keywordRelevance`, `categoryFit`, `relevance`, `qualityScore`, `developerExperience`, `pricingFit`, `recencyBonus`, `prior` and `total`. All values are rounded to 2 decimals.
 
-## Score Breakdown
+## Measuring changes
 
-Every result includes a `scoreBreakdown` object (rounded to 2 decimal places):
+Don't tune against individual queries by eye. Run:
 
-```json
-{
-  "useCaseFit": 0.31,
-  "qualityScore": 0.89,
-  "developerExperience": 1.00,
-  "pricingFit": 0.65,
-  "keywordRelevance": 0.00,
-  "recencyBonus": 0.80,
-  "total": 0.62
-}
+```bash
+npm run eval
 ```
 
-The top result also has `confidence: 0.72` and `confidenceLabel: "high"` from `findApis()`.
-
-## Tuning the Weights
-
-Weights are defined in `src/knowledge/scorer.ts`:
-
-```typescript
-export const SCORING_WEIGHTS: ScoreWeights = {
-  useCaseFit: 0.35,
-  qualityScore: 0.20,
-  developerExperience: 0.15,
-  pricingFit: 0.15,
-  keywordRelevance: 0.10,
-  recencyBonus: 0.05,
-};
-```
-
-Weights must sum to exactly 1.0 (tested). To tune:
-1. Edit the constants
-2. Run `npm test` — scorer tests catch regressions immediately
-3. Validate with `npm run analyze` — checks 20 representative queries
-
-**When to tune:**
-- Wrong category wins for clear queries → increase `keywordRelevance` or `useCaseFit`
-- High-quality irrelevant APIs float up → increase `useCaseFit` relative to `qualityScore`
-- TS projects always want TypeScript APIs → increase `developerExperience`
-- Free tier matters most → increase `pricingFit`
-
-## Edge Cases
-
-| Scenario | Behavior |
-|----------|----------|
-| Empty query | Returns `[]` immediately |
-| TF-IDF returns 0 results | Falls back to all entries (safety net) |
-| Tied scores | Stable sort (consistent ordering) |
-| `requiredLanguage` not in SDK | Language signal contributes 0 pts |
-| Single entry in database | Returns that entry |
-| `topN` > total entries | Returns all entries sorted |
-| `lastVerified` not parseable | Recency bonus = 0 |
-
-## Roadmap
-
-- **Graph scoring** — boost APIs frequently used together (via `complementary` field)
-- **Popularity signals** — GitHub stars, npm weekly downloads as quality proxy
-- **Feedback loop** — track which recommendations developers actually use
-- **`list_apis_by_category` tool** — expose category browsing as an MCP tool
+It reports top-1 accuracy, top-3 accuracy and the must-not violation rate on `tests/eval/dev.json` (tuning set) and `tests/eval/holdout.json` (held out, never tuned on). Saved runs are in `tests/eval/results/`. See `tests/eval/README.md`.

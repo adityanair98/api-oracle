@@ -10,12 +10,14 @@
  */
 
 import { createRequire } from "module";
-import { initDb } from "./knowledge/db.js";
-import { config } from "./utils/config.js";
+import { bootstrapKnowledgeBase } from "./knowledge/loader.js";
 
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
 const pkg = require("../package.json") as { version: string; name: string };
+
+/** The one-line Claude Code setup command (package name from package.json) */
+const CLAUDE_CODE_CMD = `claude mcp add api-oracle -- npx -y ${pkg.name} serve`;
 
 const HELP = `
   API Oracle — MCP server for API discovery and recommendations
@@ -32,15 +34,27 @@ const HELP = `
     --version    Show version
 
   Environment variables:
-    DB_PATH      Path to SQLite database (default: ./data/api-oracle.db)
+    DB_PATH      Optional SQLite file to use. By default the bundled entries
+                 are loaded into an in-memory database at startup and no
+                 file is written. If set, bundled entries are upserted into it.
     PORT         Dashboard port (default: 3737)
     LOG_LEVEL    Log level: debug | info | warn | error (default: info)
 
-  Example Claude Code configuration (~/.claude/claude_desktop_config.json):
+  Add to Claude Code:
+    ${CLAUDE_CODE_CMD}
+    For every project, add --scope user right after "claude mcp add".
+    On native Windows (not WSL), put "cmd /c" before npx.
+    Check it with: claude mcp list
+
+  Add to Claude Desktop — edit claude_desktop_config.json
+  (macOS: ~/Library/Application Support/Claude/claude_desktop_config.json,
+   Windows: %APPDATA%\\Claude\\claude_desktop_config.json):
     {
-      "api-oracle": {
-        "command": "npx",
-        "args": ["@adityanair98/api-oracle", "serve"]
+      "mcpServers": {
+        "api-oracle": {
+          "command": "npx",
+          "args": ["-y", "${pkg.name}", "serve"]
+        }
       }
     }
 `.trimStart();
@@ -60,15 +74,15 @@ async function main(): Promise<void> {
   }
 
   if (command === "dashboard") {
-    initDb(config.dbPath);
+    bootstrapKnowledgeBase();
     const { startDashboard } = await import("./dashboard/server.js");
     startDashboard();
     return;
   }
 
   if (command === "serve" || command === "") {
-    // Default: MCP server on stdio
-    initDb(config.dbPath);
+    // Default: MCP server on stdio. Load the bundled entries before serving.
+    bootstrapKnowledgeBase();
     const { startServer } = await import("./server.js");
     await startServer();
     return;

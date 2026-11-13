@@ -269,7 +269,7 @@ apiRouter.post("/entries/:slug/verify", (req: Request, res: Response): void => {
       slug,
       lastVerified: today,
       staleness,
-      note: `To persist: update lastVerified in src/entries/**/${slug}.json and run npm run seed`,
+      note: `To persist: update lastVerified in src/entries/**/${slug}.json and restart the server (entries are loaded at startup)`,
     });
   } catch (e: unknown) {
     logger.error("POST /api/entries/:slug/verify error", { error: String(e) });
